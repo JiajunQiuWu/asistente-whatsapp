@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Ejemplo RSS</title>
+    <item>
+      <title>Noticia RSS reciente</title>
+      <link>https://example.test/shared</link>
+      <pubDate>Wed, 14 Oct 2026 12:00:00 GMT</pubDate>
+    </item>
+    <item>
+      <title>Noticia RSS sin fecha</title>
+      <link>https://example.test/rss-undated</link>
+    </item>
+  </channel>
+</rss>

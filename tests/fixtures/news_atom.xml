@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom">
+  <title>Ejemplo Atom</title>
+  <entry>
+    <title>Noticia Atom duplicada</title>
+    <link rel="alternate" href="https://example.test/shared" />
+    <published>2026-10-15T08:30:00+02:00</published>
+  </entry>
+  <entry>
+    <title>Noticia Atom nueva</title>
+    <link href="https://example.test/atom-new" />
+    <updated>2026-10-15T07:00:00Z</updated>
+  </entry>
+</feed>

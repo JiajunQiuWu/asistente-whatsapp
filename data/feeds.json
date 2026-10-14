@@ -1,0 +1,17 @@
+[
+  {
+    "name": "BBC News - Tecnología",
+    "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+    "topic": "Tecnología"
+  },
+  {
+    "name": "BBC News - Business",
+    "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+    "topic": "Economía"
+  },
+  {
+    "name": "BBC News - World",
+    "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+    "topic": "Actualidad"
+  }
+]
