@@ -11,6 +11,7 @@ from urllib.error import URLError
 from zoneinfo import ZoneInfo
 
 from app.briefing import build_briefing
+from app.email_sender import build_briefing_email, format_email_preview
 from app.news import DEMO_NEWS
 from app.tasks import Task, add_task, list_pending_tasks
 
@@ -76,6 +77,56 @@ class BriefingTests(unittest.TestCase):
         self.assertIn("MODO DEMO", output.getvalue())
         self.assertIn("[FICTICIA]", output.getvalue())
         self.assertIn("[DEMO] Preparar una lista de compras.", output.getvalue())
+        list_tasks.assert_not_called()
+        load_sources.assert_not_called()
+        fetch_news.assert_not_called()
+        add.assert_not_called()
+        complete.assert_not_called()
+
+    def test_email_message_uses_subject_and_reused_briefing_content(self) -> None:
+        message = build_briefing_email(
+            DEMO_NEWS,
+            [Task(id=1, title="[DEMO] Comprobar el contenido.")],
+        )
+
+        self.assertEqual(message["Subject"], "Boletín personal")
+        self.assertEqual(message.get_content_type(), "text/plain")
+        self.assertIn("BOLETÍN PERSONAL", message.get_content())
+        self.assertIn("[FICTICIA]", message.get_content())
+        self.assertIn("[DEMO] Comprobar el contenido.", message.get_content())
+        self.assertIn(
+            "Vista previa: no se ha enviado ningún correo",
+            format_email_preview(message),
+        )
+
+    def test_email_demo_command_does_not_access_real_data(self) -> None:
+        from app import __main__ as application
+
+        output = io.StringIO()
+        with (
+            patch.object(sys, "argv", ["app", "email", "--demo"]),
+            patch.object(
+                application, "list_pending_tasks", side_effect=AssertionError
+            ) as list_tasks,
+            patch.object(
+                application, "load_sources", side_effect=AssertionError
+            ) as load_sources,
+            patch.object(
+                application, "fetch_news", side_effect=AssertionError
+            ) as fetch_news,
+            patch.object(application, "add_task", side_effect=AssertionError) as add,
+            patch.object(
+                application, "complete_task", side_effect=AssertionError
+            ) as complete,
+            redirect_stdout(output),
+        ):
+            self.assertEqual(application.main(), 0)
+
+        preview = output.getvalue()
+        self.assertIn("Vista previa: no se ha enviado ningún correo", preview)
+        self.assertIn("Asunto: Boletín personal", preview)
+        self.assertIn("[FICTICIA]", preview)
+        self.assertIn("[DEMO] Preparar una lista de compras.", preview)
         list_tasks.assert_not_called()
         load_sources.assert_not_called()
         fetch_news.assert_not_called()

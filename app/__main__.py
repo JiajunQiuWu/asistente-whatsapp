@@ -5,6 +5,15 @@ import sys
 from pathlib import Path
 
 from app.briefing import TimezoneDataError, build_briefing
+from app.email_sender import (
+    EmailAuthenticationError,
+    EmailConfigurationError,
+    EmailConnectionError,
+    build_briefing_email,
+    format_email_preview,
+    load_email_settings,
+    send_email,
+)
 from app.news import (
     DEMO_NEWS,
     FeedConfigError,
@@ -62,6 +71,20 @@ def main() -> int:
         "--demo",
         action="store_true",
         help="Usar noticias y tareas de ejemplo sin consultar datos reales",
+    )
+
+    email_parser = commands.add_parser(
+        "email", help="Previsualizar el boletín como correo de texto plano"
+    )
+    email_parser.add_argument(
+        "--demo",
+        action="store_true",
+        help="Usar noticias y tareas de ejemplo sin consultar datos reales",
+    )
+    email_parser.add_argument(
+        "--send",
+        action="store_true",
+        help="Enviar el correo mediante Gmail SMTP",
     )
 
     args = parser.parse_args()
@@ -122,9 +145,50 @@ def main() -> int:
             if args.demo:
                 print("MODO DEMO: las noticias y tareas son ficticias.")
             print(build_briefing(news_items, pending_tasks))
+        elif args.command == "email":
+            email_settings = load_email_settings() if args.send else None
+            if args.demo:
+                news_items = DEMO_NEWS
+                pending_tasks = (
+                    Task(id=1, title="[DEMO] Preparar una lista de compras."),
+                    Task(id=2, title="[DEMO] Leer un artículo pendiente."),
+                )
+                print("MODO DEMO: las noticias y tareas son ficticias.")
+            elif not args.send:
+                news_items = []
+                pending_tasks = list_pending_tasks()
+            else:
+                sources = load_sources(FEEDS_PATH)
+                news_items, warnings = fetch_news(sources)
+                for warning in warnings:
+                    print(f"Aviso: {warning}", file=sys.stderr)
+                pending_tasks = list_pending_tasks()
+            message = build_briefing_email(
+                news_items,
+                pending_tasks,
+                sender=email_settings.sender if email_settings else None,
+                recipient=email_settings.recipient if email_settings else None,
+            )
+            if email_settings is None:
+                print(format_email_preview(message))
+            else:
+                send_email(message, email_settings)
+                print(
+                    "Gmail aceptó el mensaje para su envío; "
+                    "esto no garantiza que llegue a la bandeja de entrada."
+                )
     except FeedConfigError as error:
         print(f"Error en la configuración de feeds: {error}", file=sys.stderr)
         return 2
+    except EmailConfigurationError as error:
+        print(f"Error de configuración de correo: {error}", file=sys.stderr)
+        return 2
+    except EmailAuthenticationError as error:
+        print(f"Error de autenticación: {error}", file=sys.stderr)
+        return 3
+    except EmailConnectionError as error:
+        print(f"Error de conexión o envío: {error}", file=sys.stderr)
+        return 4
     except TimezoneDataError as error:
         print(f"Error de zona horaria: {error}", file=sys.stderr)
         return 2

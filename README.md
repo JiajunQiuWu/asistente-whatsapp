@@ -38,6 +38,8 @@ python -m app news --limit 10
 python -m app news --demo
 python -m app briefing
 python -m app briefing --demo
+python -m app email --demo
+python -m app email --demo --send
 ```
 
 `add` muestra el ID asignado a la tarea. `list` solo muestra tareas pendientes.
@@ -83,6 +85,43 @@ boletín lo indica. Generarlo solo consulta las tareas y no las modifica.
 identificadas, sin acceder a la base de datos real ni a Internet. La función
 `build_briefing` de `app/briefing.py` construye y devuelve el texto sin
 imprimirlo, para que pueda reutilizarse desde otra interfaz.
+
+## Vista previa de correo
+
+`python -m app email` crea un correo de texto plano con el asunto "Boletín
+personal" y muestra el asunto y el cuerpo en la terminal. Sin `--send`, el
+programa no consulta Internet ni abre una conexión SMTP. Para mantener la vista
+previa offline, no incluye noticias; sí consulta las tareas pendientes locales.
+
+`python -m app email --demo` muestra la vista previa con noticias y tareas
+ficticias. No consulta Internet ni accede a la base de datos real.
+
+## Envío por Gmail
+
+El envío solo ocurre al añadir `--send`. Antes, configura estas variables de
+entorno en la sesión de PowerShell:
+
+```powershell
+$env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
+$env:EMAIL_TO = "destinatario@ejemplo.com"
+```
+
+La cuenta remitente debe tener habilitada la verificación en dos pasos y una
+contraseña de aplicación de Gmail. Puedes definir `GMAIL_APP_PASSWORD` en el
+entorno antes de ejecutar el programa; si no está definida, el programa la
+solicita de forma oculta. No la escribas en el código ni la compartas.
+
+```powershell
+python -m app email --send
+python -m app email --demo --send
+```
+
+El primer comando prepara el boletín con noticias de los feeds y tareas
+pendientes reales. El segundo prepara solo contenido ficticio, pero **sí envía
+un correo** al destinatario configurado. No ejecutamos estos comandos al probar
+el proyecto. La conexión usa SMTP de Gmail con STARTTLS. Si Gmail acepta el
+mensaje, la aplicación lo informa, pero esto no garantiza su llegada a la
+bandeja de entrada. No hay reintentos.
 
 En Windows, Python puede no tener instalados los datos de zonas horarias que
 necesita `ZoneInfo`. Instala la dependencia desde la carpeta del proyecto:
