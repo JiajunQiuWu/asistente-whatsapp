@@ -9,7 +9,9 @@ from app.email_sender import (
     EmailAuthenticationError,
     EmailConfigurationError,
     EmailConnectionError,
+    EmailCredentialStoreError,
     build_briefing_email,
+    configure_email_account,
     format_email_preview,
     load_email_settings,
     send_email,
@@ -74,7 +76,7 @@ def main() -> int:
     )
 
     email_parser = commands.add_parser(
-        "email", help="Previsualizar el boletín como correo de texto plano"
+        "email", help="Previsualizar o enviar el boletín por correo"
     )
     email_parser.add_argument(
         "--demo",
@@ -85,6 +87,15 @@ def main() -> int:
         "--send",
         action="store_true",
         help="Enviar el correo mediante Gmail SMTP",
+    )
+    email_parser.add_argument(
+        "--non-interactive",
+        action="store_true",
+        help="No solicitar la contraseña de forma interactiva",
+    )
+    commands.add_parser(
+        "email-config",
+        help="Guardar la contraseña de aplicación en el almacén seguro de Windows",
     )
 
     args = parser.parse_args()
@@ -145,8 +156,15 @@ def main() -> int:
             if args.demo:
                 print("MODO DEMO: las noticias y tareas son ficticias.")
             print(build_briefing(news_items, pending_tasks))
+        elif args.command == "email-config":
+            sender = configure_email_account()
+            print(f"Credencial guardada en el almacén seguro para {sender}.")
         elif args.command == "email":
-            email_settings = load_email_settings() if args.send else None
+            email_settings = (
+                load_email_settings(non_interactive=args.non_interactive)
+                if args.send
+                else None
+            )
             if args.demo:
                 news_items = DEMO_NEWS
                 pending_tasks = (
@@ -183,6 +201,9 @@ def main() -> int:
     except EmailConfigurationError as error:
         print(f"Error de configuración de correo: {error}", file=sys.stderr)
         return 2
+    except EmailCredentialStoreError as error:
+        print(f"Error del almacén seguro de credenciales: {error}", file=sys.stderr)
+        return 5
     except EmailAuthenticationError as error:
         print(f"Error de autenticación: {error}", file=sys.stderr)
         return 3

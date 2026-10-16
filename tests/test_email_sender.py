@@ -9,9 +9,13 @@ from unittest.mock import patch
 from app.email_sender import (
     EmailAuthenticationError,
     EmailConnectionError,
+    EmailCredentialStoreError,
     EmailSettings,
+    KEYRING_SERVICE,
     build_briefing_email,
+    configure_email_account,
     load_email_settings,
+    save_app_password,
     send_email,
 )
 from app.news import DEMO_NEWS
@@ -26,10 +30,18 @@ TEST_SETTINGS = EmailSettings(
 
 class EmailSenderTests(unittest.TestCase):
     def test_load_settings_prompts_for_missing_password_without_exposing_it(self) -> None:
+        class EmptyKeyring:
+            def get_password(self, service, username):
+                self.last_lookup = (service, username)
+                return None
+
         with patch(
             "app.email_sender.getpass.getpass",
             return_value="prompted-secret",
-        ) as getpass:
+        ) as getpass, patch(
+            "app.email_sender._secure_keyring_backend",
+            return_value=EmptyKeyring(),
+        ):
             settings = load_email_settings(
                 {
                     "GMAIL_ADDRESS": "sender@example.com",
@@ -40,6 +52,201 @@ class EmailSenderTests(unittest.TestCase):
         self.assertEqual(settings.password, "prompted-secret")
         self.assertNotIn("prompted-secret", repr(settings))
         getpass.assert_called_once()
+
+    def test_environment_password_is_used_before_keyring(self) -> None:
+        with patch(
+            "app.email_sender._secure_keyring_backend",
+            side_effect=AssertionError("no debe consultar keyring"),
+        ) as get_backend:
+            settings = load_email_settings(
+                {
+                    "GMAIL_ADDRESS": "sender@example.com",
+                    "EMAIL_TO": "recipient@example.com",
+                    "GMAIL_APP_PASSWORD": "environment-secret",
+                },
+                non_interactive=True,
+            )
+
+        self.assertEqual(settings.password, "environment-secret")
+        get_backend.assert_not_called()
+
+    def test_keyring_password_is_used_before_prompt(self) -> None:
+        class StoredKeyring:
+            def get_password(self, service, username):
+                self.lookup = (service, username)
+                return "keyring-secret"
+
+        backend = StoredKeyring()
+        with (
+            patch(
+                "app.email_sender._secure_keyring_backend",
+                return_value=backend,
+            ),
+            patch(
+                "app.email_sender.getpass.getpass",
+                side_effect=AssertionError("no debe solicitar contraseña"),
+            ) as getpass,
+        ):
+            settings = load_email_settings(
+                {
+                    "GMAIL_ADDRESS": "sender@example.com",
+                    "EMAIL_TO": "recipient@example.com",
+                },
+                non_interactive=True,
+            )
+
+        self.assertEqual(settings.password, "keyring-secret")
+        self.assertEqual(backend.lookup, (KEYRING_SERVICE, "sender@example.com"))
+        getpass.assert_not_called()
+
+    def test_email_config_saves_prompted_password_to_keyring(self) -> None:
+        password = "never-print-this-secret"
+        with (
+            patch(
+                "app.email_sender.getpass.getpass",
+                return_value=password,
+            ) as getpass,
+            patch("app.email_sender._secure_keyring_backend"),
+            patch("app.email_sender.save_app_password") as save,
+        ):
+            sender = configure_email_account(
+                {"GMAIL_ADDRESS": "sender@example.com"}
+            )
+
+        self.assertEqual(sender, "sender@example.com")
+        save.assert_called_once_with(sender, password)
+        getpass.assert_called_once()
+
+    def test_email_config_checks_secure_store_before_prompt(self) -> None:
+        with (
+            patch(
+                "app.email_sender._secure_keyring_backend",
+                side_effect=EmailCredentialStoreError("almacén no disponible"),
+            ),
+            patch(
+                "app.email_sender.getpass.getpass",
+                side_effect=AssertionError("no debe solicitar contraseña"),
+            ) as getpass,
+        ):
+            with self.assertRaises(EmailCredentialStoreError):
+                configure_email_account({"GMAIL_ADDRESS": "sender@example.com"})
+        getpass.assert_not_called()
+
+    def test_email_config_command_does_not_print_password(self) -> None:
+        from app import __main__ as application
+
+        secret = "never-print-this-secret"
+        output = io.StringIO()
+        with (
+            patch.object(sys, "argv", ["app", "email-config"]),
+            patch(
+                "app.email_sender.getpass.getpass",
+                return_value=secret,
+            ),
+            patch("app.email_sender.save_app_password") as save,
+            patch.object(
+                application,
+                "configure_email_account",
+                side_effect=lambda: configure_email_account(
+                    {"GMAIL_ADDRESS": "sender@example.com"}
+                ),
+            ),
+            redirect_stdout(output),
+        ):
+            self.assertEqual(application.main(), 0)
+
+        self.assertIn("sender@example.com", output.getvalue())
+        self.assertNotIn(secret, output.getvalue())
+        save.assert_called_once_with("sender@example.com", secret)
+
+    def test_password_is_saved_using_service_and_sender_account(self) -> None:
+        class FakeKeyring:
+            def set_password(self, service, username, password):
+                self.saved = (service, username, password)
+
+        backend = FakeKeyring()
+        with patch(
+            "app.email_sender._secure_keyring_backend",
+            return_value=backend,
+        ):
+            save_app_password("sender@example.com", "test-only-secret")
+
+        self.assertEqual(
+            backend.saved,
+            (KEYRING_SERVICE, "sender@example.com", "test-only-secret"),
+        )
+
+    def test_missing_noninteractive_password_does_not_prompt(self) -> None:
+        class EmptyKeyring:
+            def get_password(self, service, username):
+                self.last_lookup = (service, username)
+                return None
+
+        backend = EmptyKeyring()
+        with (
+            patch(
+                "app.email_sender._secure_keyring_backend",
+                return_value=backend,
+            ),
+            patch(
+                "app.email_sender.getpass.getpass",
+                side_effect=AssertionError("no debe solicitar contraseña"),
+            ) as getpass,
+        ):
+            with self.assertRaisesRegex(ValueError, "email-config"):
+                load_email_settings(
+                    {
+                        "GMAIL_ADDRESS": "sender@example.com",
+                        "EMAIL_TO": "recipient@example.com",
+                    },
+                    non_interactive=True,
+                )
+        self.assertEqual(
+            backend.last_lookup,
+            (KEYRING_SERVICE, "sender@example.com"),
+        )
+        getpass.assert_not_called()
+
+    def test_unavailable_secure_store_is_reported_without_prompt_fallback(self) -> None:
+        with (
+            patch(
+                "app.email_sender._secure_keyring_backend",
+                side_effect=EmailCredentialStoreError("almacén no disponible"),
+            ),
+            patch(
+                "app.email_sender.getpass.getpass",
+                side_effect=AssertionError("no debe usar una alternativa insegura"),
+            ) as getpass,
+        ):
+            with self.assertRaises(EmailCredentialStoreError):
+                load_email_settings(
+                    {
+                        "GMAIL_ADDRESS": "sender@example.com",
+                        "EMAIL_TO": "recipient@example.com",
+                    }
+                )
+        getpass.assert_not_called()
+
+    def test_email_config_reports_unavailable_secure_store(self) -> None:
+        from app import __main__ as application
+
+        errors = io.StringIO()
+        with (
+            patch.object(sys, "argv", ["app", "email-config"]),
+            patch.object(
+                application,
+                "configure_email_account",
+                side_effect=EmailCredentialStoreError(
+                    "No se pudo acceder al almacén seguro."
+                ),
+            ),
+            redirect_stdout(io.StringIO()),
+            redirect_stderr(errors),
+        ):
+            exit_code = application.main()
+
+        self.assertEqual(exit_code, 5)
+        self.assertIn("almacén seguro", errors.getvalue())
 
     def test_rejects_invalid_configuration_before_smtp(self) -> None:
         with self.assertRaises(ValueError):
@@ -300,6 +507,55 @@ class EmailSenderTests(unittest.TestCase):
         self.assertEqual(exit_code, 2)
         self.assertIn("GMAIL_ADDRESS", errors.getvalue())
         smtp.assert_not_called()
+
+    def test_cli_noninteractive_fails_without_password_and_does_not_prompt(self) -> None:
+        from app import __main__ as application
+
+        class EmptyKeyring:
+            def get_password(self, service, username):
+                self.last_lookup = (service, username)
+                return None
+
+        backend = EmptyKeyring()
+        errors = io.StringIO()
+        with (
+            patch.object(
+                sys,
+                "argv",
+                ["app", "email", "--demo", "--send", "--non-interactive"],
+            ),
+            patch.dict(
+                "os.environ",
+                {
+                    "GMAIL_ADDRESS": "sender@example.com",
+                    "EMAIL_TO": "recipient@example.com",
+                },
+                clear=True,
+            ),
+            patch(
+                "app.email_sender._secure_keyring_backend",
+                return_value=backend,
+            ),
+            patch(
+                "app.email_sender.getpass.getpass",
+                side_effect=AssertionError("no debe solicitar contraseña"),
+            ) as getpass,
+            patch.object(
+                application, "send_email", side_effect=AssertionError
+            ) as send,
+            redirect_stdout(io.StringIO()),
+            redirect_stderr(errors),
+        ):
+            exit_code = application.main()
+
+        self.assertEqual(exit_code, 2)
+        self.assertIn("email-config", errors.getvalue())
+        self.assertEqual(
+            backend.last_lookup,
+            (KEYRING_SERVICE, "sender@example.com"),
+        )
+        getpass.assert_not_called()
+        send.assert_not_called()
 
 
 if __name__ == "__main__":
