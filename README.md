@@ -5,6 +5,10 @@ noticias de feeds RSS 2.0 o Atom. El código usa la biblioteca estándar de
 Python; el boletín requiere `tzdata` en Windows cuando el sistema no incluye
 datos de zona horaria.
 
+El proyecto incluye además una aplicación web Django local en desarrollo para
+registro, inicio de sesión y preferencias individuales. No es un despliegue de
+producción ni envía boletines o alertas.
+
 ## Requisitos
 
 - Windows
@@ -168,4 +172,70 @@ Desde la carpeta del proyecto, ejecuta las pruebas con el entorno activado:
 
 ```powershell
 python -m unittest discover -s tests -v
+python web\manage.py test accounts
 ```
+
+## Aplicación web local
+
+El sitio web está separado de la CLI: `web\manage.py` es su punto de entrada,
+`web\config` contiene la configuración y rutas del proyecto, y `web\accounts`
+implementa autenticación y preferencias. Usa `web\db.sqlite3`, independiente de
+`data\tasks.db`; no migra las tareas de terminal ni envía correo.
+
+La dependencia del entorno es Django 6.1.2, comprobada con Python 3.14. Para
+instalar o actualizar las dependencias desde PowerShell, en la raíz:
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r requirements.txt
+```
+
+El modelo `accounts.User` basado en `AbstractUser` y el modelo de preferencias
+ya están incluidos en la migración inicial. Ejecuta las migraciones:
+
+```powershell
+.\.venv\Scripts\python.exe web\manage.py migrate
+```
+
+Crea un usuario administrador para `/admin/`:
+
+```powershell
+.\.venv\Scripts\python.exe web\manage.py createsuperuser
+```
+
+Opcionalmente, antes de arrancar, genera y asigna una clave de desarrollo en
+esta sesión de PowerShell:
+
+```powershell
+$env:DJANGO_SECRET_KEY = (& .\.venv\Scripts\python.exe -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())")
+```
+
+Arranca el servidor **solo en la interfaz local**, desde la raíz:
+
+```powershell
+.\.venv\Scripts\python.exe web\manage.py runserver 127.0.0.1:8000
+```
+
+Abre `http://127.0.0.1:8000/`. Puedes registrarte desde la página; después del
+registro se te redirige al login y aparece el aviso «Cuenta creada correctamente.
+Ya puedes iniciar sesión». Al guardar preferencias también se muestra una
+confirmación. Los errores de validación aparecen junto al campo correspondiente;
+las contraseñas no se vuelven a rellenar si el registro falla.
+Administra usuarios y preferencias en `http://127.0.0.1:8000/admin/`.
+
+La interfaz comparte una plantilla base y estilos locales en
+`web\accounts\templates\accounts` y `web\accounts\static\accounts\css\site.css`.
+Incluye formularios adaptables a móvil y escritorio; las preferencias se
+presentan en bloques de boletín, temas y alertas. El sitio se identifica como
+versión local en desarrollo y no envía correos ni alertas.
+
+Pruebas de Django:
+
+```powershell
+.\.venv\Scripts\python.exe web\manage.py test accounts
+```
+
+La base de datos web, archivos `.env*` y configuración local se excluyen de
+Git. `DEBUG` está habilitado y la clave de respaldo de settings es solo para
+desarrollo: no expongas este servidor ni uses esta configuración en producción.
+No hay recuperación ni verificación por correo, tareas programadas, alertas
+reales ni integración con WhatsApp.

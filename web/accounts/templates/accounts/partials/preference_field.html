@@ -1,0 +1,17 @@
+<div class="form-field{% if field.errors %} form-field--invalid{% endif %}{% if field.name == 'newsletter_topics' or field.name == 'alert_topics' %} form-field--choices{% endif %}">
+    {% if field.name == "newsletter_enabled" or field.name == "alerts_enabled" %}
+        <label class="checkbox-label">{{ field }}<span>{{ field.label }}</span></label>
+    {% elif field.name == "newsletter_topics" or field.name == "alert_topics" %}
+        <fieldset class="choice-field">
+            <legend>{{ field.label }}</legend>
+            {{ field }}
+        </fieldset>
+    {% else %}
+        {{ field.label_tag }}
+        {{ field }}
+    {% endif %}
+    {% if field.help_text %}<div class="help-text">{{ field.help_text|safe }}</div>{% endif %}
+    {% for error in field.errors %}
+        <p class="field-error" role="alert">{{ error }}</p>
+    {% endfor %}
+</div>

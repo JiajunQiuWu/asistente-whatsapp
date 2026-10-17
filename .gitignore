@@ -1,5 +1,6 @@
 .venv/
 .env
+.env.*
 __pycache__/
 *.py[cod]
 .pytest_cache/
@@ -8,6 +9,14 @@ data/*.db
 data/*.db-journal
 data/*.db-shm
 data/*.db-wal
+
+web/db.sqlite3
+web/db.sqlite3-*
+web/.env*
+web/local_settings.py
+web/secret_key.txt
+.coverage
+htmlcov/
 
 *.tmp
 *.temp

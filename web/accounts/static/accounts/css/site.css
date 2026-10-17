@@ -1,0 +1,466 @@
+:root {
+    color-scheme: light;
+    font-family: "Segoe UI", Arial, sans-serif;
+    color: #172b4d;
+    background: #f4f7fb;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    --ink: #172b4d;
+    --muted: #52647d;
+    --line: #d4deea;
+    --surface: #ffffff;
+    --surface-soft: #f7f9fc;
+    --brand: #174ea6;
+    --brand-hover: #103d84;
+    --focus: #bd4f00;
+    --danger: #a21b1b;
+    --success: #145a32;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    min-width: 320px;
+    min-height: 100vh;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    line-height: 1.55;
+}
+
+a {
+    color: #174ea6;
+    text-underline-offset: 0.18em;
+}
+
+a:hover {
+    color: #103d84;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 3px;
+}
+
+.skip-link {
+    position: absolute;
+    z-index: 2;
+    top: 0.5rem;
+    left: 0.5rem;
+    padding: 0.65rem 0.9rem;
+    transform: translateY(-160%);
+    border-radius: 0.4rem;
+    background: var(--ink);
+    color: white;
+}
+
+.skip-link:focus {
+    transform: translateY(0);
+}
+
+.site-header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--line);
+}
+
+.header-inner {
+    width: min(1080px, calc(100% - 2.5rem));
+    min-height: 74px;
+    margin: 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1.25rem;
+}
+
+.brand {
+    color: var(--ink);
+    font-size: 1.1rem;
+    font-weight: 750;
+    letter-spacing: -0.025em;
+    text-decoration: none;
+}
+
+.site-nav {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1.1rem;
+    color: var(--muted);
+    font-size: 0.94rem;
+}
+
+.site-nav a {
+    font-weight: 650;
+}
+
+.session-label {
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+.nav-form {
+    margin: 0;
+}
+
+.nav-signup {
+    padding: 0.55rem 0.8rem;
+    border: 1px solid var(--line);
+    border-radius: 0.5rem;
+    text-decoration: none;
+}
+
+.page-shell {
+    width: min(880px, calc(100% - 2.5rem));
+    margin: 3rem auto;
+    flex: 1;
+}
+
+.card {
+    border: 1px solid #e0e7f0;
+    border-radius: 1rem;
+    background: var(--surface);
+    box-shadow: 0 12px 35px rgb(23 43 77 / 7%);
+}
+
+.auth-card {
+    width: min(100%, 480px);
+    margin: 2.2rem auto;
+    padding: clamp(1.4rem, 5vw, 2.4rem);
+}
+
+.card-heading,
+.page-heading {
+    margin-bottom: 1.6rem;
+}
+
+.card-heading h1,
+.page-heading h1 {
+    margin: 0.15rem 0 0.45rem;
+    color: var(--ink);
+    font-size: clamp(1.8rem, 5vw, 2.35rem);
+    letter-spacing: -0.04em;
+    line-height: 1.2;
+}
+
+.card-heading > p:last-child,
+.page-heading > p:last-child {
+    max-width: 62ch;
+    margin: 0;
+    color: var(--muted);
+}
+
+.eyebrow {
+    margin: 0;
+    color: var(--brand);
+    font-size: 0.76rem;
+    font-weight: 750;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+}
+
+.form-stack,
+.preferences-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.form-field {
+    min-width: 0;
+}
+
+.form-field > label,
+.choice-field legend {
+    display: block;
+    margin-bottom: 0.42rem;
+    color: var(--ink);
+    font-size: 0.94rem;
+    font-weight: 680;
+}
+
+.form-field input:not([type="checkbox"]),
+.form-field select,
+.form-field textarea {
+    width: 100%;
+    min-height: 46px;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #8797aa;
+    border-radius: 0.5rem;
+    background: white;
+    color: var(--ink);
+    font: inherit;
+}
+
+.form-field input[type="checkbox"] {
+    width: 1.1rem;
+    height: 1.1rem;
+    accent-color: var(--brand);
+}
+
+.form-field--invalid input:not([type="checkbox"]),
+.form-field--invalid select {
+    border-color: var(--danger);
+}
+
+.help-text {
+    margin-top: 0.4rem;
+    color: var(--muted);
+    font-size: 0.84rem;
+}
+
+.help-text ul {
+    margin: 0.35rem 0 0;
+    padding-left: 1.2rem;
+}
+
+.field-error,
+.form-errors {
+    color: var(--danger);
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+.field-error {
+    margin: 0.38rem 0 0;
+}
+
+.form-errors {
+    padding: 0.75rem 0.9rem;
+    border: 1px solid #e5a6a6;
+    border-radius: 0.55rem;
+    background: #fff5f5;
+}
+
+.form-errors p {
+    margin: 0.15rem 0;
+}
+
+.button {
+    min-height: 44px;
+    padding: 0.62rem 1rem;
+    border: 1px solid transparent;
+    border-radius: 0.5rem;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.button--primary {
+    background: var(--brand);
+    color: white;
+}
+
+.button--primary:hover {
+    background: var(--brand-hover);
+}
+
+.button--quiet {
+    min-height: 38px;
+    padding: 0.35rem 0.65rem;
+    border-color: var(--line);
+    background: var(--surface);
+    color: var(--ink);
+}
+
+.button--quiet:hover {
+    background: var(--surface-soft);
+}
+
+.button--full {
+    width: 100%;
+    margin-top: 0.3rem;
+}
+
+.form-alternative {
+    margin: 1.4rem 0 0;
+    padding-top: 1.1rem;
+    border-top: 1px solid #e7edf4;
+    color: var(--muted);
+    text-align: center;
+}
+
+.notice {
+    margin: 0 0 1.2rem;
+    padding: 0.85rem 1rem;
+    border: 1px solid;
+    border-radius: 0.6rem;
+    font-weight: 650;
+}
+
+.notice--success {
+    border-color: #8bc5a0;
+    background: #edf8f0;
+    color: #124b2a;
+}
+
+.notice--error {
+    border-color: #e5a6a6;
+    background: #fff3f3;
+    color: #801515;
+}
+
+.notice:not(.notice--success):not(.notice--error) {
+    border-color: #e2bf72;
+    background: #fff9e9;
+    color: #5d4310;
+}
+
+.page-heading {
+    margin-bottom: 1.7rem;
+}
+
+.preferences-form {
+    gap: 1.1rem;
+}
+
+.preference-section {
+    padding: clamp(1.15rem, 4vw, 1.75rem);
+}
+
+.section-heading {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.9rem;
+    margin-bottom: 1.35rem;
+}
+
+.section-heading h2 {
+    margin: 0;
+    color: var(--ink);
+    font-size: 1.25rem;
+}
+
+.section-heading p {
+    margin: 0.25rem 0 0;
+    color: var(--muted);
+    font-size: 0.91rem;
+}
+
+.section-number {
+    display: grid;
+    width: 2rem;
+    height: 2rem;
+    flex: 0 0 2rem;
+    place-items: center;
+    border-radius: 0.65rem;
+    background: #eaf1fb;
+    color: var(--brand);
+    font-size: 0.75rem;
+    font-weight: 750;
+}
+
+.field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 1.1rem 1.4rem;
+}
+
+.checkbox-label {
+    display: flex !important;
+    align-items: center;
+    gap: 0.65rem;
+    min-height: 46px;
+    margin: 0 !important;
+}
+
+.choice-field {
+    min-width: 0;
+    margin: 0;
+    padding: 0;
+    border: 0;
+}
+
+.choice-field > div {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.4rem 0.75rem;
+}
+
+.choice-field > div > div label {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    min-height: 40px;
+    padding: 0.35rem 0.5rem;
+    border-radius: 0.4rem;
+    color: var(--ink);
+    cursor: pointer;
+}
+
+.choice-field > div > div label:hover {
+    background: var(--surface-soft);
+}
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: 0.35rem 0;
+}
+
+.site-footer {
+    padding: 1.3rem 1.25rem;
+    border-top: 1px solid var(--line);
+    color: var(--muted);
+    font-size: 0.84rem;
+    text-align: center;
+}
+
+.site-footer p {
+    margin: 0;
+}
+
+@media (max-width: 640px) {
+    .header-inner {
+        width: min(100% - 1.5rem, 1080px);
+        align-items: flex-start;
+        flex-direction: column;
+        gap: 0.5rem;
+        padding: 0.85rem 0;
+    }
+
+    .site-nav {
+        width: 100%;
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 0.55rem 0.85rem;
+        font-size: 0.9rem;
+    }
+
+    .session-label {
+        width: 100%;
+        order: 1;
+    }
+
+    .nav-form {
+        order: 2;
+    }
+
+    .page-shell {
+        width: min(100% - 1.5rem, 880px);
+        margin: 1.6rem auto;
+    }
+
+    .auth-card {
+        margin: 0.5rem auto;
+    }
+
+    .field-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .form-actions .button {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+    .button,
+    .nav-signup,
+    .choice-field li label {
+        transition: background-color 120ms ease, color 120ms ease;
+    }
+}

@@ -1,0 +1,33 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Crear cuenta{% endblock %}
+
+{% block content %}
+    <section class="card auth-card" aria-labelledby="page-title">
+        <div class="card-heading">
+            <p class="eyebrow">Empieza aquí</p>
+            <h1 id="page-title">Crear cuenta</h1>
+            <p>Elige un nombre de usuario y crea una contraseña segura.</p>
+        </div>
+        <form method="post" class="form-stack" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors" role="alert">
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
+            {% for field in form %}
+                <div class="form-field{% if field.errors %} form-field--invalid{% endif %}">
+                    {{ field.label_tag }}
+                    {{ field }}
+                    {% if field.help_text %}<div class="help-text">{{ field.help_text|safe }}</div>{% endif %}
+                    {% for error in field.errors %}
+                        <p class="field-error" role="alert">{{ error }}</p>
+                    {% endfor %}
+                </div>
+            {% endfor %}
+            <button class="button button--primary button--full" type="submit">Crear mi cuenta</button>
+        </form>
+        <p class="form-alternative">¿Ya tienes cuenta? <a href="{% url 'login' %}">Inicia sesión</a>.</p>
+    </section>
+{% endblock %}

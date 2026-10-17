@@ -1,0 +1,73 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Mis preferencias{% endblock %}
+
+{% block content %}
+    <section class="preferences-page" aria-labelledby="page-title">
+        <div class="page-heading">
+            <p class="eyebrow">Tu espacio personal</p>
+            <h1 id="page-title">Mis preferencias</h1>
+            <p>Estas opciones pertenecen a tu cuenta. Guardarlas no envía boletines ni alertas.</p>
+        </div>
+        <form method="post" class="preferences-form" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors" role="alert">
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
+
+            <section class="card preference-section" aria-labelledby="newsletter-heading">
+                <div class="section-heading">
+                    <span class="section-number" aria-hidden="true">01</span>
+                    <div>
+                        <h2 id="newsletter-heading">Boletín</h2>
+                        <p>Configura cuándo y en qué zona horaria prefieres recibirlo.</p>
+                    </div>
+                </div>
+                <div class="field-grid">
+                    {% for field in form %}
+                        {% if field.name == "newsletter_enabled" or field.name == "newsletter_time" or field.name == "timezone_name" %}
+                            {% include "accounts/partials/preference_field.html" with field=field %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+
+            <section class="card preference-section" aria-labelledby="topics-heading">
+                <div class="section-heading">
+                    <span class="section-number" aria-hidden="true">02</span>
+                    <div>
+                        <h2 id="topics-heading">Temas</h2>
+                        <p>Elige los temas que te interesan para el boletín.</p>
+                    </div>
+                </div>
+                {% for field in form %}
+                    {% if field.name == "newsletter_topics" %}
+                        {% include "accounts/partials/preference_field.html" with field=field %}
+                    {% endif %}
+                {% endfor %}
+            </section>
+
+            <section class="card preference-section" aria-labelledby="alerts-heading">
+                <div class="section-heading">
+                    <span class="section-number" aria-hidden="true">03</span>
+                    <div>
+                        <h2 id="alerts-heading">Alertas</h2>
+                        <p>Las alertas tienen su propia selección de temas y un límite diario.</p>
+                    </div>
+                </div>
+                <div class="field-grid">
+                    {% for field in form %}
+                        {% if field.name == "alerts_enabled" or field.name == "alert_topics" or field.name == "daily_alert_limit" %}
+                            {% include "accounts/partials/preference_field.html" with field=field %}
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </section>
+
+            <div class="form-actions">
+                <button class="button button--primary" type="submit">Guardar preferencias</button>
+            </div>
+        </form>
+{% endblock %}

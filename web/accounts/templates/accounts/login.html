@@ -1,0 +1,39 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Iniciar sesión{% endblock %}
+
+{% block content %}
+    <section class="card auth-card" aria-labelledby="page-title">
+        <div class="card-heading">
+            <p class="eyebrow">Qué bueno verte</p>
+            <h1 id="page-title">Iniciar sesión</h1>
+            <p>Accede para consultar y actualizar tus preferencias.</p>
+        </div>
+        <form method="post" class="form-stack" novalidate>
+            {% csrf_token %}
+            {% if form.non_field_errors %}
+                <div class="form-errors" role="alert">
+                    {% for error in form.non_field_errors %}<p>{{ error }}</p>{% endfor %}
+                </div>
+            {% endif %}
+            {% for field in form %}
+                {% if field.is_hidden %}
+                    {{ field }}
+                {% else %}
+                    <div class="form-field{% if field.errors %} form-field--invalid{% endif %}">
+                        {{ field.label_tag }}
+                        {{ field }}
+                        {% for error in field.errors %}
+                            <p class="field-error" role="alert">{{ error }}</p>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            {% endfor %}
+            {% if next %}
+                <input type="hidden" name="next" value="{{ next }}">
+            {% endif %}
+            <button class="button button--primary button--full" type="submit">Entrar</button>
+        </form>
+        <p class="form-alternative">¿Aún no tienes cuenta? <a href="{% url 'register' %}">Regístrate</a>.</p>
+    </section>
+{% endblock %}
