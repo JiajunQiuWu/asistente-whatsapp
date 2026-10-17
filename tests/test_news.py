@@ -6,6 +6,7 @@ from urllib.error import URLError
 
 from app.news import (
     FEED_TIMEOUT_SECONDS,
+    MAX_FEED_BYTES,
     FeedConfigError,
     FeedSource,
     fetch_news,
@@ -19,6 +20,29 @@ ATOM_SOURCE = FeedSource("Atom local", "https://example.test/atom", "Economía")
 
 
 class NewsFeedTests(unittest.TestCase):
+    def test_feed_download_is_limited_to_maximum_response_size(self) -> None:
+        class OversizedResponse:
+            read_limit = None
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, exc_type, exc_value, traceback):
+                return False
+
+            def read(self, size):
+                self.read_limit = size
+                return b"x" * size
+
+        response = OversizedResponse()
+        with patch("app.news.urlopen", return_value=response):
+            items, warnings = fetch_news([RSS_SOURCE])
+
+        self.assertEqual(items, [])
+        self.assertEqual(response.read_limit, MAX_FEED_BYTES + 1)
+        self.assertEqual(len(warnings), 1)
+        self.assertIn("supera el límite", warnings[0])
+
     def test_reads_rss_and_atom_with_namespaces_and_dates(self) -> None:
         rss_items = parse_feed((FIXTURES / "news_rss.xml").read_bytes(), RSS_SOURCE)
         atom_items = parse_feed((FIXTURES / "news_atom.xml").read_bytes(), ATOM_SOURCE)

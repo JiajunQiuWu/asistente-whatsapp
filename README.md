@@ -228,11 +228,28 @@ Incluye formularios adaptables a móvil y escritorio; las preferencias se
 presentan en bloques de boletín, temas y alertas. El sitio se identifica como
 versión local en desarrollo y no envía correos ni alertas.
 
+Con la sesión iniciada, abre `http://127.0.0.1:8000/boletin/` para consultar
+manualmente hasta cinco noticias de los temas elegidos para el boletín. La vista
+usa esos temas, no los de alertas, y muestra fecha y hora según tu zona horaria.
+Aunque el envío esté desactivado, la consulta manual está disponible y no lo
+activa. No se consultan tareas de la CLI ni se envían correos.
+
+La configuración de fuentes se lee desde `data/feeds.json`, con una ruta
+absoluta derivada del código, no del directorio actual. Los códigos `technology`,
+`economy` e `international` se corresponden explícitamente con las etiquetas
+`Tecnología`, `Economía` y `Actualidad` de las fuentes. Las preferencias IA y
+ciencia todavía no tienen feeds configurados; temas y fuentes desconocidos se
+omiten. Cada consulta usa el lector RSS/Atom compartido con la CLI, con espera
+máxima de 10 segundos, límite de 1 MiB por respuesta y deduplicación de URL de
+fuente dentro de la petición.
+
 Pruebas de Django:
 
 ```powershell
 .\.venv\Scripts\python.exe web\manage.py test accounts
 ```
+
+Las pruebas de la vista previa usan feeds simulados y no necesitan Internet.
 
 La base de datos web, archivos `.env*` y configuración local se excluyen de
 Git. `DEBUG` está habilitado y la clave de respaldo de settings es solo para

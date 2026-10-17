@@ -1,0 +1,81 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Vista previa del boletín{% endblock %}
+
+{% block content %}
+    <section class="preferences-page" aria-labelledby="page-title">
+        <div class="page-heading">
+            <p class="eyebrow">Tu espacio personal</p>
+            <h1 id="page-title">Vista previa del boletín</h1>
+            <p>
+                Consulta manualmente noticias de los temas que has elegido.
+                Esta vista no activa ni envía boletines.
+            </p>
+        </div>
+
+        {% if not preview.newsletter_enabled %}
+            <div class="notice notice--info" role="status">
+                El envío del boletín está desactivado. Esta consulta manual no lo activa.
+            </div>
+        {% endif %}
+
+        <p class="preview-datetime">
+            Consulta del {{ preview.generated_at|date:"d/m/Y H:i" }}
+            ({{ preview.timezone_name }})
+        </p>
+
+        {% if preview.warnings %}
+            <div class="feed-warnings" aria-label="Avisos de fuentes">
+                {% for warning in preview.warnings %}
+                    <p class="notice notice--error" role="alert">{{ warning }}</p>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        {% if not preview.has_selected_topics %}
+            <section class="card preview-empty" aria-labelledby="empty-heading">
+                <h2 id="empty-heading">Aún no has elegido temas</h2>
+                <p>Selecciona uno o varios temas para consultar sus noticias.</p>
+                <a class="button button--primary" href="{% url 'preferences' %}">
+                    Editar preferencias
+                </a>
+            </section>
+        {% elif preview.articles %}
+            <section class="preview-results" aria-labelledby="results-heading">
+                <div class="section-heading">
+                    <span class="section-number" aria-hidden="true">
+                        {{ preview.articles|length }}
+                    </span>
+                    <div>
+                        <h2 id="results-heading">Noticias seleccionadas</h2>
+                        <p>Ordenadas por fecha cuando la fuente proporciona una.</p>
+                    </div>
+                </div>
+                <ol class="news-list">
+                    {% for article in preview.articles %}
+                        <li class="card news-card">
+                            <h3><a href="{{ article.link }}" target="_blank" rel="noopener noreferrer">{{ article.title }}</a></h3>
+                            <p class="news-meta">
+                                <span>{{ article.source }}</span>
+                                {% if article.published %}
+                                    <span>·</span>
+                                    <time>{{ article.published }}</time>
+                                {% endif %}
+                            </p>
+                        </li>
+                    {% endfor %}
+                </ol>
+            </section>
+        {% else %}
+            <section class="card preview-empty" aria-labelledby="empty-heading">
+                <h2 id="empty-heading">No hay noticias disponibles</h2>
+                {% if preview.matched_source_count %}
+                    <p>No se encontraron noticias en las fuentes de tus temas seleccionados.</p>
+                {% else %}
+                    <p>Aún no hay fuentes configuradas para los temas que seleccionaste.</p>
+                {% endif %}
+                <p><a href="{% url 'preferences' %}">Editar preferencias</a></p>
+            </section>
+        {% endif %}
+    </section>
+{% endblock %}

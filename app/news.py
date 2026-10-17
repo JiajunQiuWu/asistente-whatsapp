@@ -11,6 +11,7 @@ from urllib.request import Request, urlopen
 import xml.etree.ElementTree as ET
 
 FEED_TIMEOUT_SECONDS = 10
+MAX_FEED_BYTES = 1_048_576
 
 
 class FeedConfigError(ValueError):
@@ -254,7 +255,12 @@ def fetch_news(sources: list[FeedSource]) -> tuple[list[NewsItem], list[str]]:
                 headers={"User-Agent": "AsistentePersonal/1.0 (RSS reader)"},
             )
             with urlopen(request, timeout=FEED_TIMEOUT_SECONDS) as response:
-                items = parse_feed(response.read(), source)
+                content = response.read(MAX_FEED_BYTES + 1)
+                if len(content) > MAX_FEED_BYTES:
+                    raise ValueError(
+                        f"la respuesta supera el límite de {MAX_FEED_BYTES} bytes"
+                    )
+                items = parse_feed(content, source)
         except (URLError, TimeoutError, OSError, ET.ParseError, ValueError) as error:
             warnings.append(f"No se pudo consultar {source.name}: {error}")
             continue

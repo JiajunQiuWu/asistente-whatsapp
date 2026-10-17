@@ -10,6 +10,7 @@ from django.views.decorators.http import require_POST
 
 from .forms import PreferencesForm, RegistrationForm
 from .models import Preferences
+from .newsletter_service import get_user_newsletter_preview
 
 
 def register(request):
@@ -53,3 +54,14 @@ def preferences(request):
         messages.success(request, "Tus preferencias se han guardado.")
         return redirect("preferences")
     return render(request, "accounts/preferences.html", {"form": form})
+
+
+@login_required
+def newsletter_preview(request):
+    """Muestra noticias filtradas para las preferencias de la sesión actual."""
+    preview = get_user_newsletter_preview(request.user)
+    return render(
+        request,
+        "accounts/newsletter_preview.html",
+        {"preview": preview},
+    )
