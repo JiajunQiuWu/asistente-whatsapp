@@ -9,13 +9,15 @@
             <h1 id="page-title">Vista previa del boletín</h1>
             <p>
                 Consulta manualmente noticias de los temas que has elegido.
-                Esta vista no activa ni envía boletines.
+                La vista previa no envía correo; puedes solicitarlo con el botón
+                cuando haya noticias disponibles.
             </p>
         </div>
 
         {% if not preview.newsletter_enabled %}
             <div class="notice notice--info" role="status">
-                El envío del boletín está desactivado. Esta consulta manual no lo activa.
+                El envío automático está desactivado. Aun así, puedes solicitar
+                un boletín manual; esto no activa el envío automático.
             </div>
         {% endif %}
 
@@ -77,5 +79,38 @@
                 <p><a href="{% url 'preferences' %}">Editar preferencias</a></p>
             </section>
         {% endif %}
+
+        {% if email_verified and preview.has_selected_topics and preview.articles %}
+            <form action="{% url 'send_manual_newsletter' %}" method="post">
+                {% csrf_token %}
+                <button class="button button--primary" type="submit">
+                    Enviarme mi boletín
+                </button>
+            </form>
+        {% elif not email_verified %}
+            <div class="notice notice--info" role="status">
+                Verifica tu correo para poder recibir el boletín.
+                <a href="{% url 'preferences' %}">Ver estado del correo</a>
+            </div>
+        {% endif %}
+
+        <section class="card" aria-labelledby="attempts-heading">
+            <h2 id="attempts-heading">Tus últimos intentos</h2>
+            {% if attempts %}
+                {% load tz %}
+                <ul>
+                    {% for attempt in attempts %}
+                        <li>
+                            {% timezone preview.timezone_name %}
+                                {{ attempt.created_at|date:"d/m/Y H:i" }}
+                            {% endtimezone %}
+                            · {{ attempt.recipient }} · {{ attempt.get_status_display }}
+                        </li>
+                    {% endfor %}
+                </ul>
+            {% else %}
+                <p>Aún no has solicitado ningún envío manual.</p>
+            {% endif %}
+        </section>
     </section>
 {% endblock %}

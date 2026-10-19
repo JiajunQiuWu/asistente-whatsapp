@@ -6,8 +6,8 @@ Python; el boletín requiere `tzdata` en Windows cuando el sistema no incluye
 datos de zona horaria.
 
 El proyecto incluye además una aplicación web Django local en desarrollo para
-registro, inicio de sesión y preferencias individuales. No es un despliegue de
-producción ni envía boletines o alertas.
+registro, inicio de sesión, preferencias individuales y envío manual de
+boletines. No es un despliegue de producción ni programa envíos o alertas.
 
 ## Requisitos
 
@@ -179,8 +179,8 @@ python web\manage.py test accounts
 
 El sitio web está separado de la CLI: `web\manage.py` es su punto de entrada,
 `web\config` contiene la configuración y rutas del proyecto, y `web\accounts`
-implementa autenticación y preferencias. Usa `web\db.sqlite3`, independiente de
-`data\tasks.db`; no migra las tareas de terminal ni envía correo.
+implementa autenticación, preferencias y boletines. Usa `web\db.sqlite3`,
+independiente de `data\tasks.db`; no migra ni consulta las tareas de terminal.
 
 La dependencia del entorno es Django 6.1.2, comprobada con Python 3.14. Para
 instalar o actualizar las dependencias desde PowerShell, en la raíz:
@@ -190,11 +190,12 @@ instalar o actualizar las dependencias desde PowerShell, en la raíz:
 ```
 
 El modelo `accounts.User` basado en `AbstractUser` y el modelo de preferencias
-están en la migración inicial. La migración siguiente añade el estado y el
-envío de verificación, además de una restricción de unicidad de correo sin
-distinguir mayúsculas/minúsculas. Antes de aplicar cambios, comprueba los
-correos existentes y se detiene mostrando las cuentas en conflicto; no borra
-ni combina usuarios. Resuelve los conflictos manualmente y vuelve a ejecutar:
+están en la migración inicial. La migración de verificación añade el estado y
+el envío de verificación, además de una restricción de unicidad de correo sin
+distinguir mayúsculas/minúsculas. Comprueba los correos existentes y se detiene
+mostrando las cuentas en conflicto; no borra ni combina usuarios. La migración
+del envío manual añade el registro de intentos y el control de frecuencia.
+Resuelve cualquier conflicto de correo manualmente y aplica las migraciones:
 
 ```powershell
 .\.venv\Scripts\python.exe web\manage.py migrate
@@ -277,13 +278,20 @@ La interfaz comparte una plantilla base y estilos locales en
 `web\accounts\templates\accounts` y `web\accounts\static\accounts\css\site.css`.
 Incluye formularios adaptables a móvil y escritorio; las preferencias se
 presentan en bloques de correo, boletín, temas y alertas. El sitio se identifica
-como versión local en desarrollo; no envía boletines ni alertas.
+como versión local en desarrollo; no programa boletines ni envía alertas.
 
 Con la sesión iniciada, abre `http://127.0.0.1:8000/boletin/` para consultar
 manualmente hasta cinco noticias de los temas elegidos para el boletín. La vista
 usa esos temas, no los de alertas, y muestra fecha y hora según tu zona horaria.
-Aunque el envío esté desactivado, la consulta manual está disponible y no lo
-activa. No se consultan tareas de la CLI ni se envían correos.
+Aunque el envío automático esté desactivado, puedes solicitar manualmente el
+boletín si hay noticias y tu correo está verificado; esto no activa envíos
+automáticos. El formulario envía solo mediante POST protegido por CSRF, toma el
+destinatario y la cuenta de la sesión verificada, y limita cada cuenta a un
+intento cada cinco minutos. La vista muestra solo tus diez intentos más
+recientes. El backend de Django recibe el mensaje: el backend de consola
+predeterminado solo imprime una simulación. Que un backend acepte el mensaje no
+garantiza su llegada a Recibidos. No se consultan tareas de la CLI y no hay
+reintentos automáticos.
 
 La configuración de fuentes se lee desde `data/feeds.json`, con una ruta
 absoluta derivada del código, no del directorio actual. Los códigos `technology`,
@@ -294,21 +302,27 @@ omiten. Cada consulta usa el lector RSS/Atom compartido con la CLI, con espera
 máxima de 10 segundos, límite de 1 MiB por respuesta y deduplicación de URL de
 fuente dentro de la petición.
 
-Pruebas de Django:
+Pruebas:
+
+Las pruebas Django usan feeds simulados y el backend de correo en memoria; no
+necesitan Internet ni envían correos reales. Ejecuta también las pruebas de la
+CLI para conservar la cobertura existente:
 
 ```powershell
+.\.venv\Scripts\python.exe -m unittest discover -s tests -v
 .\.venv\Scripts\python.exe web\manage.py test accounts
 ```
 
-Las pruebas de la vista previa usan feeds simulados y no necesitan Internet.
-Las pruebas de verificación usan el backend de correo en memoria; no envían
-correos reales. Para probar manualmente en desarrollo, mantén el backend de
-consola, registra una cuenta, copia el enlace que aparece en la terminal y
-prueba primero el GET (solo confirmación) y después el POST del formulario.
+Para probar manualmente en desarrollo, deja configurado el backend de consola
+(el predeterminado), registra una cuenta, copia el enlace de verificación que
+aparece en la terminal y confirma mediante el formulario. Después, elige temas
+con fuentes disponibles y solicita «Enviarme mi boletín» desde la vista previa.
+El correo se simula en la consola; no configures SMTP ni uses una cuenta real
+durante las pruebas. Puedes comprobar el resultado y el límite de cinco minutos
+en el historial de la misma página.
 
 La base de datos web, archivos `.env*` y configuración local se excluyen de
 Git. `DEBUG` está habilitado y la clave de respaldo de settings es solo para
 desarrollo: no expongas este servidor ni uses esta configuración en producción.
-No hay recuperación de contraseña, cambio de correo desde la web, envíos de
-boletines desde la web, tareas programadas, alertas reales ni integración con
-WhatsApp.
+No hay recuperación de contraseña, cambio de correo desde la web, programación
+diaria, alertas reales ni integración con WhatsApp.

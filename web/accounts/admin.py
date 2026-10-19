@@ -3,7 +3,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 
-from .models import Preferences, User
+from .models import NewsletterSendAttempt, Preferences, User
 
 
 @admin.register(User)
@@ -23,3 +23,11 @@ class PreferencesAdmin(admin.ModelAdmin):
     )
     search_fields = ("user__username",)
     list_filter = ("newsletter_enabled", "alerts_enabled", "timezone_name")
+
+
+@admin.register(NewsletterSendAttempt)
+class NewsletterSendAttemptAdmin(admin.ModelAdmin):
+    list_display = ("created_at", "user", "recipient", "kind", "status")
+    list_filter = ("kind", "status")
+    search_fields = ("user__username", "recipient")
+    readonly_fields = ("user", "created_at", "recipient", "kind", "status")

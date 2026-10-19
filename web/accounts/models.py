@@ -53,6 +53,11 @@ class User(AbstractUser):
         null=True,
         verbose_name="último correo de verificación enviado",
     )
+    manual_newsletter_last_attempt_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="último intento manual de boletín",
+    )
 
     class Meta:
         verbose_name = "user"
@@ -141,3 +146,43 @@ class Preferences(models.Model):
 
     def __str__(self) -> str:
         return f"Preferencias de {self.user.username}"
+
+
+class NewsletterSendAttempt(models.Model):
+    """Resultado mínimo de un intento manual de envío de boletín."""
+
+    class Status(models.TextChoices):
+        PENDING = "pending", "Pendiente"
+        ACCEPTED = "accepted", "Aceptado por el backend"
+        FAILED = "failed", "Fallido"
+
+    class Kind(models.TextChoices):
+        MANUAL = "manual", "Manual"
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="newsletter_send_attempts",
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="fecha")
+    recipient = models.EmailField(verbose_name="destinatario")
+    kind = models.CharField(
+        max_length=16,
+        choices=Kind.choices,
+        default=Kind.MANUAL,
+        verbose_name="tipo",
+    )
+    status = models.CharField(
+        max_length=16,
+        choices=Status.choices,
+        default=Status.PENDING,
+        verbose_name="estado",
+    )
+
+    class Meta:
+        ordering = ("-created_at", "-pk")
+        verbose_name = "intento de envío de boletín"
+        verbose_name_plural = "intentos de envío de boletín"
+
+    def __str__(self) -> str:
+        return f"{self.user} · {self.created_at:%Y-%m-%d %H:%M} · {self.status}"

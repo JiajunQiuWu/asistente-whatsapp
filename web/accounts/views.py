@@ -1,18 +1,26 @@
 """Vistas de registro, sesión y preferencias del usuario autenticado."""
 
+import smtplib
+from datetime import timedelta
+
 from django.contrib import messages
 from django.contrib.auth import logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import LoginView
+from django.conf import settings
+from django.core.mail import send_mail
 from django.db import IntegrityError, transaction
+from django.db.models import Q
 from django.shortcuts import redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_http_methods, require_POST
 
 from .email_verification import load_verification_user, send_verification_email
 from .forms import PreferencesForm, RegistrationForm
-from .models import Preferences, User
+from .models import NewsletterSendAttempt, Preferences, TOPIC_CHOICES, User
 from .newsletter_service import get_user_newsletter_preview
+
+NEWSLETTER_SEND_INTERVAL = timedelta(minutes=5)
 
 
 def register(request):
@@ -147,10 +155,140 @@ def verify_email(request):
 
 @login_required
 def newsletter_preview(request):
-    """Muestra noticias filtradas para las preferencias de la sesión actual."""
+    """Muestra noticias personalizadas y el historial del usuario actual."""
     preview = get_user_newsletter_preview(request.user)
+    attempts = NewsletterSendAttempt.objects.filter(user=request.user)[:10]
     return render(
         request,
         "accounts/newsletter_preview.html",
-        {"preview": preview},
+        {
+            "preview": preview,
+            "attempts": attempts,
+            "email_verified": request.user.email_verified_at is not None,
+        },
     )
+
+
+@login_required
+@require_POST
+def send_manual_newsletter(request):
+    """Reserva y envía un boletín personalizado solo al correo verificado."""
+    if request.user.email_verified_at is None:
+        messages.error(request, "Verifica tu correo antes de solicitar un boletín.")
+        return redirect("newsletter_preview")
+
+    preview = get_user_newsletter_preview(request.user)
+    if not preview.has_selected_topics:
+        messages.warning(
+            request,
+            "Elige al menos un tema antes de solicitar el envío del boletín.",
+        )
+        return redirect("newsletter_preview")
+    if not preview.articles:
+        messages.warning(
+            request,
+            "No hay noticias disponibles para tus temas; no se ha enviado el boletín.",
+        )
+        return redirect("newsletter_preview")
+
+    now = timezone.now()
+    with transaction.atomic():
+        current_user = User.objects.filter(
+            pk=request.user.pk,
+            email_verified_at__isnull=False,
+        ).exclude(email="").first()
+        if current_user is None:
+            messages.error(
+                request,
+                "Tu cuenta no tiene un correo verificado válido para enviar el boletín.",
+            )
+            return redirect("newsletter_preview")
+
+        reserved = (
+            User.objects.filter(
+                pk=current_user.pk,
+                email=current_user.email,
+                email_verified_at__isnull=False,
+            )
+            .filter(
+                Q(manual_newsletter_last_attempt_at__isnull=True)
+                | Q(
+                    manual_newsletter_last_attempt_at__lte=(
+                        now - NEWSLETTER_SEND_INTERVAL
+                    )
+                )
+            )
+            .update(manual_newsletter_last_attempt_at=now)
+        )
+        if not reserved:
+            messages.warning(
+                request,
+                "Ya has solicitado un boletín recientemente. "
+                "Espera cinco minutos antes de volver a intentarlo.",
+            )
+            return redirect("newsletter_preview")
+
+        attempt = NewsletterSendAttempt.objects.create(
+            user=current_user,
+            recipient=current_user.email,
+        )
+
+    topic_labels = dict(TOPIC_CHOICES)
+    selected_topics = ", ".join(
+        topic_labels.get(topic, topic) for topic in preview.selected_topics
+    )
+    lines = [
+        f"Tu boletín personal ({preview.generated_at:%d/%m/%Y %H:%M} "
+        f"{preview.timezone_name})",
+        f"Temas: {selected_topics}",
+        "",
+    ]
+    for article in preview.articles:
+        lines.extend(
+            [
+                article.title,
+                article.source,
+                f"Publicado: {article.published}" if article.published else "",
+                article.link,
+                "",
+            ]
+        )
+
+    try:
+        accepted = (
+            send_mail(
+                subject="Tu boletín personal",
+                message="\n".join(lines),
+                from_email=settings.DEFAULT_FROM_EMAIL,
+                recipient_list=[attempt.recipient],
+                fail_silently=False,
+            )
+            == 1
+        )
+    except (OSError, smtplib.SMTPException, ValueError):
+        accepted = False
+
+    attempt.status = (
+        NewsletterSendAttempt.Status.ACCEPTED
+        if accepted
+        else NewsletterSendAttempt.Status.FAILED
+    )
+    attempt.save(update_fields={"status"})
+
+    if not accepted:
+        messages.error(
+            request,
+            "No se pudo completar el envío. No se ha programado un reintento.",
+        )
+    elif settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend":
+        messages.success(
+            request,
+            "Simulación completada: el backend de consola aceptó el boletín. "
+            "Esto no garantiza la llegada a Recibidos.",
+        )
+    else:
+        messages.success(
+            request,
+            "El backend aceptó el boletín. Esto no garantiza su llegada a Recibidos.",
+        )
+    return redirect("newsletter_preview")
