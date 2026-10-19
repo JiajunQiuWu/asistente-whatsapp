@@ -14,6 +14,7 @@ from app.email_sender import (
     KEYRING_SERVICE,
     build_briefing_email,
     configure_email_account,
+    get_app_password_non_interactive,
     load_email_settings,
     save_app_password,
     send_email,
@@ -97,6 +98,52 @@ class EmailSenderTests(unittest.TestCase):
 
         self.assertEqual(settings.password, "keyring-secret")
         self.assertEqual(backend.lookup, (KEYRING_SERVICE, "sender@example.com"))
+        getpass.assert_not_called()
+
+    def test_noninteractive_password_helper_reuses_keyring_without_prompt(self) -> None:
+        class StoredKeyring:
+            def get_password(self, service, username):
+                self.lookup = (service, username)
+                return "keyring-secret"
+
+        backend = StoredKeyring()
+        with (
+            patch(
+                "app.email_sender._secure_keyring_backend",
+                return_value=backend,
+            ),
+            patch(
+                "app.email_sender.getpass.getpass",
+                side_effect=AssertionError("no debe solicitar contraseña"),
+            ) as getpass,
+        ):
+            password = get_app_password_non_interactive("sender@example.com")
+
+        self.assertEqual(password, "keyring-secret")
+        self.assertEqual(backend.lookup, (KEYRING_SERVICE, "sender@example.com"))
+        getpass.assert_not_called()
+
+    def test_noninteractive_password_helper_fails_clearly_when_missing(self) -> None:
+        class EmptyKeyring:
+            def get_password(self, service, username):
+                return None
+
+        with (
+            patch(
+                "app.email_sender._secure_keyring_backend",
+                return_value=EmptyKeyring(),
+            ),
+            patch(
+                "app.email_sender.getpass.getpass",
+                side_effect=AssertionError("no debe solicitar contraseña"),
+            ) as getpass,
+        ):
+            with self.assertRaisesRegex(
+                ValueError,
+                "No se encontró GMAIL_APP_PASSWORD",
+            ):
+                get_app_password_non_interactive("sender@example.com")
+
         getpass.assert_not_called()
 
     def test_email_config_saves_prompted_password_to_keyring(self) -> None:

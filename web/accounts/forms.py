@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 from django import forms
 from django.contrib.auth.forms import UserCreationForm
 from django.core.exceptions import ValidationError
+from django.db.models.functions import Lower
 
 from .models import Preferences, TOPIC_CHOICES, User
 
@@ -12,9 +13,19 @@ from .models import Preferences, TOPIC_CHOICES, User
 class RegistrationForm(UserCreationForm):
     """Registro basado en el formulario estándar, con validación de contraseña Django."""
 
+    email = forms.EmailField(label="Correo electrónico", required=True)
+
     class Meta(UserCreationForm.Meta):
         model = User
-        fields = ("username",)
+        fields = ("username", "email")
+
+    def clean_email(self) -> str:
+        email = self.cleaned_data["email"]
+        if User.objects.annotate(email_lower=Lower("email")).filter(
+            email_lower=email.lower()
+        ).exists():
+            raise ValidationError("Esta dirección de correo ya está registrada.")
+        return email
 
 
 class PreferencesForm(forms.ModelForm):

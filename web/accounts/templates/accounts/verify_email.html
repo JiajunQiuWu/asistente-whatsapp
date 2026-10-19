@@ -1,0 +1,33 @@
+{% extends "accounts/base.html" %}
+
+{% block title %}Verificar correo{% endblock %}
+
+{% block content %}
+    <section class="card auth-card" aria-labelledby="page-title">
+        <div class="card-heading">
+            <p class="eyebrow">Verificación de correo</p>
+            {% if state == "confirm" %}
+                <h1 id="page-title">Confirma tu dirección</h1>
+                <p>Verifica {{ user.email }}. El enlace caduca a las 24 horas.</p>
+                <form method="post" class="form-stack">
+                    {% csrf_token %}
+                    <input type="hidden" name="token" value="{{ token }}">
+                    <button class="button button--primary button--full" type="submit">
+                        Verificar correo
+                    </button>
+                </form>
+            {% elif state == "verified" %}
+                <h1 id="page-title">Correo verificado</h1>
+                <p>La dirección {{ user.email }} ya está verificada.</p>
+                <a class="button button--primary" href="{% url 'login' %}">Iniciar sesión</a>
+            {% elif state == "already_verified" %}
+                <h1 id="page-title">Enlace ya utilizado</h1>
+                <p>Esta dirección de correo ya se había verificado.</p>
+            {% else %}
+                <h1 id="page-title">Enlace no válido</h1>
+                <p>El enlace ha caducado, no es válido o ya no corresponde a la dirección actual.</p>
+                <a href="{% url 'login' %}">Iniciar sesión</a>
+            {% endif %}
+        </div>
+    </section>
+{% endblock %}

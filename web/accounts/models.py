@@ -9,6 +9,7 @@ from django.core.exceptions import ValidationError
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 from django.db.models import Q
+from django.db.models.functions import Lower
 
 TOPIC_CHOICES = (
     ("ai", "IA"),
@@ -41,6 +42,47 @@ def validate_timezone(value: str) -> None:
 
 class User(AbstractUser):
     """Usuario propio del proyecto; conserva el sistema de autenticación Django."""
+
+    email_verified_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="correo verificado el",
+    )
+    verification_email_sent_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        verbose_name="último correo de verificación enviado",
+    )
+
+    class Meta:
+        verbose_name = "user"
+        verbose_name_plural = "users"
+        constraints = [
+            models.UniqueConstraint(
+                Lower("email"),
+                condition=~Q(email=""),
+                name="accounts_user_email_ci_unique",
+            )
+        ]
+
+    def save(self, *args, **kwargs):
+        update_fields = kwargs.get("update_fields")
+        saves_email = update_fields is None or "email" in update_fields
+        if self.pk and saves_email:
+            previous_email = (
+                type(self).objects.filter(pk=self.pk)
+                .values_list("email", flat=True)
+                .first()
+            )
+            if previous_email is not None and previous_email != self.email:
+                self.email_verified_at = None
+                self.verification_email_sent_at = None
+                if update_fields is not None:
+                    kwargs["update_fields"] = set(update_fields) | {
+                        "email_verified_at",
+                        "verification_email_sent_at",
+                    }
+        super().save(*args, **kwargs)
 
 
 class Preferences(models.Model):

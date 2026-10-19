@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 from django.contrib import admin
 from django.contrib.auth import get_user_model
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 
 from .forms import PreferencesForm, RegistrationForm
@@ -15,12 +15,17 @@ User = get_user_model()
 STRONG_PASSWORD = "L0cal-test-passphrase!2026"
 
 
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    EMAIL_VERIFICATION_BASE_URL="http://localhost:8000",
+)
 class RegistrationAndAuthenticationTests(TestCase):
     def test_registration_creates_user_and_default_preferences_then_redirects_login(self):
         response = self.client.post(
             reverse("register"),
             {
                 "username": "nueva-persona",
+                "email": "nueva-persona@example.test",
                 "password1": STRONG_PASSWORD,
                 "password2": STRONG_PASSWORD,
             },
@@ -34,10 +39,12 @@ class RegistrationAndAuthenticationTests(TestCase):
         login_page = self.client.get(reverse("login"))
         self.assertContains(
             login_page,
-            "Cuenta creada correctamente. Ya puedes iniciar sesión",
+            "Cuenta creada. Falta verificar el correo antes de confirmarlo.",
         )
         self.assertContains(login_page, 'role="status"')
         user = User.objects.get(username="nueva-persona")
+        self.assertEqual(user.email, "nueva-persona@example.test")
+        self.assertIsNone(user.email_verified_at)
         self.assertTrue(user.check_password(STRONG_PASSWORD))
         preferences = user.preferences
         self.assertFalse(preferences.newsletter_enabled)

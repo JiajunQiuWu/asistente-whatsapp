@@ -9,6 +9,27 @@
             <h1 id="page-title">Mis preferencias</h1>
             <p>Estas opciones pertenecen a tu cuenta. Guardarlas no envía boletines ni alertas.</p>
         </div>
+        <section class="card preference-section" aria-labelledby="email-heading">
+            <div class="section-heading">
+                <span class="section-number" aria-hidden="true">04</span>
+                <div>
+                    <h2 id="email-heading">Correo electrónico</h2>
+                    {% if user.email_verified_at %}
+                        <p>{{ user.email }} · Verificado el {{ user.email_verified_at|date:"d/m/Y H:i" }}.</p>
+                    {% elif user.email %}
+                        <p>{{ user.email }} · Pendiente de verificación.</p>
+                    {% else %}
+                        <p>Esta cuenta no tiene una dirección de correo configurada.</p>
+                    {% endif %}
+                </div>
+            </div>
+            {% if user.email and not user.email_verified_at %}
+                <form method="post" action="{% url 'resend_verification_email' %}">
+                    {% csrf_token %}
+                    <button class="button button--quiet" type="submit">Reenviar verificación</button>
+                </form>
+            {% endif %}
+        </section>
         <form method="post" class="preferences-form" novalidate>
             {% csrf_token %}
             {% if form.non_field_errors %}

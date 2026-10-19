@@ -210,6 +210,11 @@ def _get_app_password(sender: str, non_interactive: bool) -> str:
     return password
 
 
+def get_app_password_non_interactive(sender: str) -> str:
+    """Recupera la contraseña de Gmail sin solicitar entrada interactiva."""
+    return _get_app_password(sender, non_interactive=True)
+
+
 def _validated_address(value: str | None, variable_name: str) -> str:
     """Comprueba una dirección sencilla antes de usarla en cabeceras o SMTP.
 

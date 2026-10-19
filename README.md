@@ -190,11 +190,20 @@ instalar o actualizar las dependencias desde PowerShell, en la raíz:
 ```
 
 El modelo `accounts.User` basado en `AbstractUser` y el modelo de preferencias
-ya están incluidos en la migración inicial. Ejecuta las migraciones:
+están en la migración inicial. La migración siguiente añade el estado y el
+envío de verificación, además de una restricción de unicidad de correo sin
+distinguir mayúsculas/minúsculas. Antes de aplicar cambios, comprueba los
+correos existentes y se detiene mostrando las cuentas en conflicto; no borra
+ni combina usuarios. Resuelve los conflictos manualmente y vuelve a ejecutar:
 
 ```powershell
 .\.venv\Scripts\python.exe web\manage.py migrate
 ```
+
+Las cuentas previas conservan sus credenciales y quedan sin verificar. Los
+correos vacíos de cuentas existentes se permiten para no impedir la migración;
+el formulario de registro sí exige una dirección válida y única. La CLI y su
+base `data\tasks.db` no se modifican.
 
 Crea un usuario administrador para `/admin/`:
 
@@ -209,24 +218,66 @@ esta sesión de PowerShell:
 $env:DJANGO_SECRET_KEY = (& .\.venv\Scripts\python.exe -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())")
 ```
 
+En desarrollo Django imprime los correos de verificación en la consola y no
+abre conexiones SMTP; esta es la opción predeterminada. Para elegir el backend
+SMTP, reutiliza la cuenta Gmail y la contraseña que la CLI guarda en el
+Administrador de credenciales de Windows. Gmail exige verificación en dos
+pasos y una contraseña de aplicación. Desde la raíz del proyecto, configura la
+cuenta y guarda la contraseña de forma oculta (este comando no envía correo):
+
+```powershell
+$env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
+python -m app email-config
+```
+
+Después, en la misma sesión de PowerShell, activa SMTP de Django y arranca el
+servidor:
+
+```powershell
+$env:DJANGO_EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+$env:EMAIL_HOST = "smtp.gmail.com"
+$env:EMAIL_PORT = "587"
+$env:EMAIL_USE_TLS = "true"
+$env:EMAIL_TIMEOUT = "10"
+$env:EMAIL_HOST_USER = $env:GMAIL_ADDRESS
+$env:DEFAULT_FROM_EMAIL = $env:GMAIL_ADDRESS
+$env:EMAIL_VERIFICATION_BASE_URL = "http://localhost:8000"
+.\.venv\Scripts\python.exe web\manage.py runserver 127.0.0.1:8000
+```
+
+El backend web reutiliza la recuperación segura de keyring de la CLI y nunca
+solicita la contraseña interactivamente. También acepta `GMAIL_APP_PASSWORD` o
+`EMAIL_HOST_PASSWORD` en el entorno, si ya utilizas esa opción; no la pongas en
+un archivo ni la imprimas. Si el backend SMTP está seleccionado y no encuentra
+la contraseña en el entorno ni en keyring, Django se detiene con un mensaje de
+configuración claro. Gmail usa STARTTLS, puerto 587 y timeout de 10 segundos.
+El origen de los enlaces se toma únicamente de
+`EMAIL_VERIFICATION_BASE_URL`, no de la cabecera `Host`; usa una URL bajo tu
+control. En local el valor predeterminado es `http://localhost:8000`.
+
 Arranca el servidor **solo en la interfaz local**, desde la raíz:
 
 ```powershell
 .\.venv\Scripts\python.exe web\manage.py runserver 127.0.0.1:8000
 ```
 
-Abre `http://127.0.0.1:8000/`. Puedes registrarte desde la página; después del
-registro se te redirige al login y aparece el aviso «Cuenta creada correctamente.
-Ya puedes iniciar sesión». Al guardar preferencias también se muestra una
-confirmación. Los errores de validación aparecen junto al campo correspondiente;
-las contraseñas no se vuelven a rellenar si el registro falla.
+Abre `http://127.0.0.1:8000/`. Al registrarte, indica un correo válido y se
+enviará un enlace de verificación con caducidad de 24 horas. El enlace primero
+muestra una confirmación; solo el formulario POST protegido por CSRF verifica
+la dirección, por lo que una previsualización o un escáner que abra el enlace
+no la activa. La página privada muestra el estado del correo y permite
+reenviarlo mediante POST, con un mínimo de cinco minutos entre envíos. El
+registro y el inicio de sesión no dependen de que el correo ya esté verificado.
+Al guardar preferencias también se muestra una confirmación. Los errores de
+validación aparecen junto al campo correspondiente; las contraseñas no se
+vuelven a rellenar si el registro falla.
 Administra usuarios y preferencias en `http://127.0.0.1:8000/admin/`.
 
 La interfaz comparte una plantilla base y estilos locales en
 `web\accounts\templates\accounts` y `web\accounts\static\accounts\css\site.css`.
 Incluye formularios adaptables a móvil y escritorio; las preferencias se
-presentan en bloques de boletín, temas y alertas. El sitio se identifica como
-versión local en desarrollo y no envía correos ni alertas.
+presentan en bloques de correo, boletín, temas y alertas. El sitio se identifica
+como versión local en desarrollo; no envía boletines ni alertas.
 
 Con la sesión iniciada, abre `http://127.0.0.1:8000/boletin/` para consultar
 manualmente hasta cinco noticias de los temas elegidos para el boletín. La vista
@@ -250,9 +301,14 @@ Pruebas de Django:
 ```
 
 Las pruebas de la vista previa usan feeds simulados y no necesitan Internet.
+Las pruebas de verificación usan el backend de correo en memoria; no envían
+correos reales. Para probar manualmente en desarrollo, mantén el backend de
+consola, registra una cuenta, copia el enlace que aparece en la terminal y
+prueba primero el GET (solo confirmación) y después el POST del formulario.
 
 La base de datos web, archivos `.env*` y configuración local se excluyen de
 Git. `DEBUG` está habilitado y la clave de respaldo de settings es solo para
 desarrollo: no expongas este servidor ni uses esta configuración en producción.
-No hay recuperación ni verificación por correo, tareas programadas, alertas
-reales ni integración con WhatsApp.
+No hay recuperación de contraseña, cambio de correo desde la web, envíos de
+boletines desde la web, tareas programadas, alertas reales ni integración con
+WhatsApp.

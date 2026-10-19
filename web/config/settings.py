@@ -3,6 +3,8 @@
 import os
 from pathlib import Path
 
+from django.core.exceptions import ImproperlyConfigured
+
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # Esta clave permite arrancar el proyecto en local. Define DJANGO_SECRET_KEY
@@ -92,3 +94,68 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 LOGIN_URL = "login"
 LOGIN_REDIRECT_URL = "preferences"
 LOGOUT_REDIRECT_URL = "login"
+
+EMAIL_BACKEND = os.environ.get(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend",
+)
+SMTP_EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+SMTP_SELECTED = EMAIL_BACKEND == SMTP_EMAIL_BACKEND
+EMAIL_HOST = os.environ.get(
+    "EMAIL_HOST",
+    "smtp.gmail.com" if SMTP_SELECTED else "",
+)
+EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
+EMAIL_HOST_USER = os.environ.get(
+    "EMAIL_HOST_USER",
+    os.environ.get("GMAIL_ADDRESS", ""),
+)
+EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD") or os.environ.get(
+    "GMAIL_APP_PASSWORD",
+    "",
+)
+EMAIL_USE_TLS = os.environ.get(
+    "EMAIL_USE_TLS",
+    "true" if SMTP_SELECTED else "false",
+).lower() in {
+    "1",
+    "true",
+    "yes",
+}
+EMAIL_TIMEOUT = int(os.environ.get("EMAIL_TIMEOUT", "10"))
+DEFAULT_FROM_EMAIL = os.environ.get(
+    "DEFAULT_FROM_EMAIL",
+    EMAIL_HOST_USER or "webmaster@localhost",
+)
+EMAIL_VERIFICATION_BASE_URL = os.environ.get(
+    "EMAIL_VERIFICATION_BASE_URL",
+    "http://localhost:8000",
+)
+
+if SMTP_SELECTED:
+    if not EMAIL_HOST_USER:
+        raise ImproperlyConfigured(
+            "Configura GMAIL_ADDRESS o EMAIL_HOST_USER para habilitar "
+            "el backend SMTP de Django."
+        )
+    if not EMAIL_HOST_PASSWORD:
+        from app.email_sender import (
+            EmailConfigurationError,
+            EmailCredentialStoreError,
+            get_app_password_non_interactive,
+        )
+
+        try:
+            EMAIL_HOST_PASSWORD = get_app_password_non_interactive(EMAIL_HOST_USER)
+        except EmailConfigurationError as error:
+            raise ImproperlyConfigured(
+                "No se encontró la contraseña de aplicación de Gmail. "
+                "Configura GMAIL_APP_PASSWORD o guárdala con "
+                "`python -m app email-config`."
+            ) from error
+        except EmailCredentialStoreError as error:
+            raise ImproperlyConfigured(
+                "No se pudo acceder a la credencial Gmail de Windows. "
+                "Configura GMAIL_APP_PASSWORD o revisa el Administrador de "
+                "credenciales y ejecuta `python -m app email-config`."
+            ) from error
