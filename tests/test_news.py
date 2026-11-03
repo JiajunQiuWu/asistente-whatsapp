@@ -55,6 +55,27 @@ class NewsFeedTests(unittest.TestCase):
         self.assertEqual(atom_items[0].link, "https://example.test/shared")
         self.assertEqual(atom_items[1].published, "2026-10-15T07:00:00Z")
 
+    def test_reads_optional_summary_and_only_safe_image_urls(self) -> None:
+        content = b"""<?xml version="1.0"?>
+        <rss version="2.0"><channel>
+          <item><title>Noticia con imagen</title>
+            <link>https://example.test/article</link>
+            <description><![CDATA[<p>Resumen disponible.</p>]]></description>
+            <enclosure url="https://example.test/image.jpg" type="image/jpeg"/>
+          </item>
+          <item><title>Imagen no segura</title>
+            <link>https://example.test/second</link>
+            <enclosure url="javascript:alert(1)" type="image/jpeg"/>
+          </item>
+        </channel></rss>"""
+
+        items = parse_feed(content, RSS_SOURCE)
+
+        self.assertEqual(items[0].summary, "<p>Resumen disponible.</p>")
+        self.assertEqual(items[0].image_url, "https://example.test/image.jpg")
+        self.assertIsNone(items[1].summary)
+        self.assertIsNone(items[1].image_url)
+
     def test_deduplicates_by_link_and_sorts_undated_items_last(self) -> None:
         def local_open(request, timeout):
             self.assertEqual(timeout, FEED_TIMEOUT_SECONDS)

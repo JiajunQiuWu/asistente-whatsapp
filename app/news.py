@@ -33,6 +33,8 @@ class NewsItem:
     published: str | None
     published_at: datetime | None
     link: str
+    summary: str | None = None
+    image_url: str | None = None
 
 
 DEMO_NEWS = (
@@ -181,6 +183,38 @@ def _atom_link(entry: ET.Element) -> str | None:
     return None
 
 
+def _media_url(value: str | None) -> str | None:
+    if not value:
+        return None
+    try:
+        return _validate_url(value, 1)
+    except FeedConfigError:
+        return None
+
+
+def _image_url(entry: ET.Element) -> str | None:
+    for child in entry:
+        name = _local_name(child.tag)
+        media_type = child.get("type", "").lower()
+        if name == "enclosure" and media_type.startswith("image/"):
+            candidate = _media_url(child.get("url"))
+        elif (
+            name == "link"
+            and child.get("rel") == "enclosure"
+            and media_type.startswith("image/")
+        ):
+            candidate = _media_url(child.get("href"))
+        elif name == "content" and media_type.startswith("image/"):
+            candidate = _media_url(child.get("url"))
+        elif name == "thumbnail" and child.get("url"):
+            candidate = _media_url(child.get("url"))
+        else:
+            candidate = None
+        if candidate:
+            return candidate
+    return None
+
+
 def _make_item(
     entry: ET.Element,
     source: FeedSource,
@@ -198,6 +232,12 @@ def _make_item(
         published=published,
         published_at=published_at,
         link=link,
+        summary=(
+            _child_text(entry, "description")
+            or _child_text(entry, "summary")
+            or _child_text(entry, "content")
+        ),
+        image_url=_image_url(entry),
     )
 
 

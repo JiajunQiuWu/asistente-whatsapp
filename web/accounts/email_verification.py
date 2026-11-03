@@ -105,4 +105,8 @@ def send_verification_email(user: User) -> str:
                 verification_email_sent_at=now,
             ).update(verification_email_sent_at=None)
 
-    return "sent" if sent else "failed"
+    if not sent:
+        return "failed"
+    if settings.EMAIL_BACKEND == "django.core.mail.backends.console.EmailBackend":
+        return "simulated"
+    return "sent"

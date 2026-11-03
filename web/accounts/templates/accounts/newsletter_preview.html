@@ -1,16 +1,15 @@
 {% extends "accounts/base.html" %}
 
-{% block title %}Vista previa del boletín{% endblock %}
+{% block title %}Boletín{% endblock %}
 
 {% block content %}
-    <section class="preferences-page" aria-labelledby="page-title">
+    <section class="newsletter-page preferences-page" aria-labelledby="page-title">
         <div class="page-heading">
-            <p class="eyebrow">Tu espacio personal</p>
-            <h1 id="page-title">Vista previa del boletín</h1>
+            <p class="eyebrow">Tu resumen personal</p>
+            <h1 id="page-title">Tu boletín</h1>
             <p>
-                Consulta manualmente noticias de los temas que has elegido.
-                La vista previa no envía correo; puedes solicitarlo con el botón
-                cuando haya noticias disponibles.
+                Esta es la vista previa de las noticias elegidas según tus temas.
+                Consultarla no envía ningún correo.
             </p>
         </div>
 
@@ -35,7 +34,7 @@
         {% endif %}
 
         {% if not preview.has_selected_topics %}
-            <section class="card preview-empty" aria-labelledby="empty-heading">
+            <section class="card empty-state" aria-labelledby="empty-heading">
                 <h2 id="empty-heading">Aún no has elegido temas</h2>
                 <p>Selecciona uno o varios temas para consultar sus noticias.</p>
                 <a class="button button--primary" href="{% url 'preferences' %}">
@@ -43,45 +42,29 @@
                 </a>
             </section>
         {% elif preview.articles %}
-            <section class="preview-results" aria-labelledby="results-heading">
-                <div class="section-heading">
-                    <span class="section-number" aria-hidden="true">
-                        {{ preview.articles|length }}
-                    </span>
+            <section class="newsletter-articles" aria-labelledby="articles-heading">
+                <div class="news-list-heading">
                     <div>
-                        <h2 id="results-heading">Noticias seleccionadas</h2>
-                        <p>Ordenadas por fecha cuando la fuente proporciona una.</p>
+                        <h2 id="articles-heading">Noticias de tus temas</h2>
+                        <p>{{ preview.articles|length }} noticias seleccionadas</p>
                     </div>
                 </div>
-                <ol class="news-list">
-                    {% for article in preview.articles %}
-                        <li class="card news-card">
-                            <h3><a href="{{ article.link }}" target="_blank" rel="noopener noreferrer">{{ article.title }}</a></h3>
-                            <p class="news-meta">
-                                <span>{{ article.source }}</span>
-                                {% if article.published %}
-                                    <span>·</span>
-                                    <time>{{ article.published }}</time>
-                                {% endif %}
-                            </p>
-                        </li>
-                    {% endfor %}
-                </ol>
+                {% include "accounts/partials/news_cards.html" with articles=preview.articles %}
             </section>
         {% else %}
-            <section class="card preview-empty" aria-labelledby="empty-heading">
+            <section class="card empty-state" aria-labelledby="empty-heading">
                 <h2 id="empty-heading">No hay noticias disponibles</h2>
                 {% if preview.matched_source_count %}
                     <p>No se encontraron noticias en las fuentes de tus temas seleccionados.</p>
                 {% else %}
                     <p>Aún no hay fuentes configuradas para los temas que seleccionaste.</p>
                 {% endif %}
-                <p><a href="{% url 'preferences' %}">Editar preferencias</a></p>
+                <p><a class="text-link" href="{% url 'preferences' %}">Editar preferencias</a></p>
             </section>
         {% endif %}
 
         {% if email_verified and preview.has_selected_topics and preview.articles %}
-            <form action="{% url 'send_manual_newsletter' %}" method="post">
+            <form action="{% url 'send_manual_newsletter' %}" method="post" class="send-newsletter-form">
                 {% csrf_token %}
                 <button class="button button--primary" type="submit">
                     Enviarme mi boletín
@@ -90,26 +73,38 @@
         {% elif not email_verified %}
             <div class="notice notice--info" role="status">
                 Verifica tu correo para poder recibir el boletín.
-                <a href="{% url 'preferences' %}">Ver estado del correo</a>
+                <a href="{% url 'preferences' %}#email-heading">Ver estado del correo</a>
             </div>
         {% endif %}
 
-        <section class="card" aria-labelledby="attempts-heading">
-            <h2 id="attempts-heading">Tus últimos intentos</h2>
+        <section class="card history-card" aria-labelledby="attempts-heading">
+            <div class="section-heading">
+                <span class="section-number" aria-hidden="true">↗</span>
+                <div>
+                    <h2 id="attempts-heading">Tus últimos intentos</h2>
+                    <p>Los diez intentos más recientes de esta cuenta.</p>
+                </div>
+            </div>
             {% if attempts %}
                 {% load tz %}
-                <ul>
-                    {% for attempt in attempts %}
-                        <li>
-                            {% timezone preview.timezone_name %}
-                                {{ attempt.created_at|date:"d/m/Y H:i" }}
-                            {% endtimezone %}
-                            · {{ attempt.recipient }} · {{ attempt.get_status_display }}
-                        </li>
-                    {% endfor %}
-                </ul>
+                <div class="table-scroll">
+                    <table class="attempt-table">
+                        <thead>
+                            <tr><th scope="col">Fecha</th><th scope="col">Destinatario</th><th scope="col">Estado</th></tr>
+                        </thead>
+                        <tbody>
+                            {% for attempt in attempts %}
+                                <tr>
+                                    <td>{% timezone preview.timezone_name %}{{ attempt.created_at|date:"d/m/Y H:i" }}{% endtimezone %}</td>
+                                    <td>{{ attempt.recipient }}</td>
+                                    <td><span class="attempt-status attempt-status--{{ attempt.status }}">{{ attempt.get_status_display }}</span></td>
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
             {% else %}
-                <p>Aún no has solicitado ningún envío manual.</p>
+                <p class="empty-history">Aún no has solicitado ningún envío manual.</p>
             {% endif %}
         </section>
     </section>

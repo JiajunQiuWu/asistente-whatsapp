@@ -194,7 +194,8 @@ están en la migración inicial. La migración de verificación añade el estado
 el envío de verificación, además de una restricción de unicidad de correo sin
 distinguir mayúsculas/minúsculas. Comprueba los correos existentes y se detiene
 mostrando las cuentas en conflicto; no borra ni combina usuarios. La migración
-del envío manual añade el registro de intentos y el control de frecuencia.
+del envío manual añade el registro de intentos y el control de frecuencia; una
+migración posterior añade estados para simulaciones y resultados inciertos.
 Resuelve cualquier conflicto de correo manualmente y aplica las migraciones:
 
 ```powershell
@@ -276,22 +277,29 @@ Administra usuarios y preferencias en `http://127.0.0.1:8000/admin/`.
 
 La interfaz comparte una plantilla base y estilos locales en
 `web\accounts\templates\accounts` y `web\accounts\static\accounts\css\site.css`.
-Incluye formularios adaptables a móvil y escritorio; las preferencias se
-presentan en bloques de correo, boletín, temas y alertas. El sitio se identifica
-como versión local en desarrollo; no programa boletines ni envía alertas.
+Después del inicio de sesión se abre Noticias; los destinos internos de `next`
+se conservan y Django rechaza destinos externos. La navegación autenticada usa
+un menú lateral que se puede desplegar en móvil. Noticias muestra los temas
+elegidos, las fuentes y los datos de resumen e imagen que ofrezca cada feed; no
+se inventan los datos ausentes. El panel del boletín distingue entre correo
+verificado y pendiente y aclara que el envío automático todavía no está
+programado. Las preferencias conservan correo, boletín, temas y alertas. El
+sitio se identifica como versión local en desarrollo y no envía alertas.
 
-Con la sesión iniciada, abre `http://127.0.0.1:8000/boletin/` para consultar
-manualmente hasta cinco noticias de los temas elegidos para el boletín. La vista
-usa esos temas, no los de alertas, y muestra fecha y hora según tu zona horaria.
+Con la sesión iniciada, abre `http://127.0.0.1:8000/noticias/` para consultar
+noticias de los temas elegidos, o `http://127.0.0.1:8000/boletin/` para la vista
+previa, el envío manual y el historial. Ambas vistas usan los temas del boletín,
+no los de alertas, y muestran fecha y hora según tu zona horaria.
 Aunque el envío automático esté desactivado, puedes solicitar manualmente el
 boletín si hay noticias y tu correo está verificado; esto no activa envíos
 automáticos. El formulario envía solo mediante POST protegido por CSRF, toma el
 destinatario y la cuenta de la sesión verificada, y limita cada cuenta a un
-intento cada cinco minutos. La vista muestra solo tus diez intentos más
-recientes. El backend de Django recibe el mensaje: el backend de consola
-predeterminado solo imprime una simulación. Que un backend acepte el mensaje no
-garantiza su llegada a Recibidos. No se consultan tareas de la CLI y no hay
-reintentos automáticos.
+intento cada cinco minutos, también ante solicitudes simultáneas. La vista
+muestra solo tus diez intentos más recientes y su resultado: en proceso,
+aceptado por el servidor de correo, fallido, incierto o simulación completada
+cuando se usa el backend de consola. Un resultado aceptado no garantiza la
+llegada a Recibidos; un resultado incierto no se reintenta automáticamente.
+No se consultan tareas de la CLI.
 
 La configuración de fuentes se lee desde `data/feeds.json`, con una ruta
 absoluta derivada del código, no del directorio actual. Los códigos `technology`,

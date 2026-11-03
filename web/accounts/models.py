@@ -152,9 +152,11 @@ class NewsletterSendAttempt(models.Model):
     """Resultado mínimo de un intento manual de envío de boletín."""
 
     class Status(models.TextChoices):
-        PENDING = "pending", "Pendiente"
-        ACCEPTED = "accepted", "Aceptado por el backend"
+        PENDING = "pending", "En proceso"
+        ACCEPTED = "accepted", "Aceptado por el servidor de correo"
+        SIMULATED = "simulated", "Simulación completada"
         FAILED = "failed", "Fallido"
+        UNCERTAIN = "uncertain", "Resultado incierto"
 
     class Kind(models.TextChoices):
         MANUAL = "manual", "Manual"

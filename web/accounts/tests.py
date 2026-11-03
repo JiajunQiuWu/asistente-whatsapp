@@ -39,7 +39,7 @@ class RegistrationAndAuthenticationTests(TestCase):
         login_page = self.client.get(reverse("login"))
         self.assertContains(
             login_page,
-            "Cuenta creada. Falta verificar el correo antes de confirmarlo.",
+            "El backend de correo aceptó el mensaje de verificación",
         )
         self.assertContains(login_page, 'role="status"')
         user = User.objects.get(username="nueva-persona")
@@ -115,8 +115,35 @@ class RegistrationAndAuthenticationTests(TestCase):
             reverse("login"),
             {"username": user.username, "password": STRONG_PASSWORD},
         )
-        self.assertRedirects(login_response, reverse("preferences"))
-        self.assertEqual(self.client.get(reverse("preferences")).status_code, 200)
+        self.assertRedirects(login_response, reverse("news"))
+        self.assertEqual(self.client.get(reverse("news")).status_code, 200)
+
+    def test_login_preserves_safe_next_and_rejects_external_next(self):
+        user = User.objects.create_user(
+            username="next-user",
+            password=STRONG_PASSWORD,
+        )
+
+        safe_response = self.client.post(
+            reverse("login"),
+            {
+                "username": user.username,
+                "password": STRONG_PASSWORD,
+                "next": reverse("preferences"),
+            },
+        )
+        self.assertRedirects(safe_response, reverse("preferences"))
+
+        self.client.logout()
+        unsafe_response = self.client.post(
+            reverse("login"),
+            {
+                "username": user.username,
+                "password": STRONG_PASSWORD,
+                "next": "https://example.invalid/steal-session",
+            },
+        )
+        self.assertRedirects(unsafe_response, reverse("news"))
 
         logout_response = self.client.post(reverse("logout"))
         self.assertRedirects(logout_response, reverse("login"))

@@ -1,0 +1,29 @@
+<ol class="news-list">
+    {% for article in articles %}
+        <li class="card news-card{% if article.image_url %} news-card--with-image{% endif %}">
+            {% if article.image_url %}
+                <img class="news-image" src="{{ article.image_url }}" alt=""
+                     loading="lazy" decoding="async" referrerpolicy="no-referrer">
+            {% endif %}
+            <div class="news-card-content">
+                {% if article.topic %}<span class="topic-tag">{{ article.topic }}</span>{% endif %}
+                <h3>
+                    <a href="{{ article.link }}" target="_blank"
+                       rel="noopener noreferrer" referrerpolicy="no-referrer">
+                        {{ article.title }}
+                    </a>
+                </h3>
+                <p class="news-meta">
+                    <span>{{ article.source }}</span>
+                    {% if article.published %}
+                        <span aria-hidden="true">·</span>
+                        <time>{{ article.published }}</time>
+                    {% endif %}
+                </p>
+                {% if article.summary %}
+                    <p class="news-summary">{{ article.summary|striptags|truncatewords:45 }}</p>
+                {% endif %}
+            </div>
+        </li>
+    {% endfor %}
+</ol>

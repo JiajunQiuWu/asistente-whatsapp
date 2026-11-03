@@ -5,6 +5,7 @@ from django.urls import path
 from .views import (
     UserLoginView,
     logout_view,
+    news,
     newsletter_preview,
     preferences,
     register,
@@ -14,7 +15,8 @@ from .views import (
 )
 
 urlpatterns = [
-    path("", preferences, name="home"),
+    path("", news, name="home"),
+    path("noticias/", news, name="news"),
     path("registro/", register, name="register"),
     path("login/", UserLoginView.as_view(), name="login"),
     path("logout/", logout_view, name="logout"),

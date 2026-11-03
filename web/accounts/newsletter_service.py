@@ -23,6 +23,10 @@ FEED_TOPIC_BY_PREFERENCE = {
     "economy": "Economía",
     "international": "Actualidad",
 }
+PREFERENCE_BY_FEED_TOPIC = {
+    feed_topic: preference_topic
+    for preference_topic, feed_topic in FEED_TOPIC_BY_PREFERENCE.items()
+}
 MAX_NEWS_ITEMS = 5
 
 
@@ -34,6 +38,10 @@ class NewsletterArticle:
     source: str
     published: str | None
     link: str
+    topic: str = ""
+    topic_code: str = ""
+    summary: str | None = None
+    image_url: str | None = None
 
 
 @dataclass(frozen=True)
@@ -138,6 +146,10 @@ def get_user_newsletter_preview(
             source=item.source,
             published=_localized_date(item, user_timezone),
             link=item.link,
+            topic=item.topic,
+            topic_code=PREFERENCE_BY_FEED_TOPIC.get(item.topic, ""),
+            summary=item.summary,
+            image_url=item.image_url if _is_http_url(item.image_url or "") else None,
         )
         for item in news_items
         if _is_http_url(item.link)

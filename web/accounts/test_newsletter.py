@@ -1,14 +1,17 @@
 """Pruebas offline para la vista previa personalizada del boletín."""
 
-from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone as datetime_timezone
+from io import BytesIO
 from smtplib import SMTPException
+from threading import Barrier
 from unittest.mock import patch
 from urllib.error import URLError
 
 from django.contrib.auth import get_user_model
 from django.core import mail
-from django.test import Client, TestCase, override_settings
+from django.db import connection
+from django.test import Client, TestCase, TransactionTestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -253,6 +256,89 @@ class NewsletterPreviewTests(TestCase):
         self.assertContains(response, 'href="https://articles.example.test/safe"')
 
 
+class NewsPageTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="news-page-user",
+            email="news-page@example.test",
+            password="news-page-password",
+        )
+        self.client.force_login(self.user)
+        self.preview = NewsletterPreview(
+            generated_at=datetime(2026, 10, 18, 10, 30, tzinfo=datetime_timezone.utc),
+            timezone_name="Europe/Paris",
+            newsletter_enabled=True,
+            selected_topics=("economy", "technology"),
+            articles=(
+                NewsletterArticle(
+                    "Noticia económica",
+                    "Fuente economía",
+                    "18/10/2026 12:30",
+                    "https://articles.example.test/economy",
+                    "Economía",
+                    "economy",
+                    "Un resumen disponible.",
+                    "https://images.example.test/economy.jpg",
+                ),
+                NewsletterArticle(
+                    "Noticia tecnológica",
+                    "Fuente tecnología",
+                    None,
+                    "https://articles.example.test/technology",
+                    "Tecnología",
+                    "technology",
+                ),
+            ),
+            warnings=(),
+            has_selected_topics=True,
+            matched_source_count=2,
+        )
+
+    def test_news_page_filters_selected_topics_and_shows_real_preferences(self):
+        Preferences.objects.create(
+            user=self.user,
+            newsletter_topics=["economy", "technology"],
+            newsletter_enabled=True,
+            newsletter_time="08:15",
+            timezone_name="Europe/Paris",
+        )
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            return_value=self.preview,
+        ):
+            response = self.client.get(reverse("news"), {"tema": "economy"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Tus noticias de hoy")
+        self.assertContains(response, "Noticia económica")
+        self.assertNotContains(response, "Noticia tecnológica")
+        self.assertContains(response, "Un resumen disponible.")
+        self.assertContains(response, "https://images.example.test/economy.jpg")
+        self.assertContains(response, "08:15 · Europe/Paris")
+        self.assertContains(response, "Pendiente de verificación")
+        self.assertNotContains(response, "Correo activo")
+        self.assertContains(response, "Próximamente")
+        self.assertContains(response, "recibir tu resumen diario")
+
+    def test_news_page_omits_missing_summary_and_image(self):
+        preview = NewsletterPreview(
+            **{
+                **self.preview.__dict__,
+                "articles": (self.preview.articles[1],),
+            }
+        )
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            return_value=preview,
+        ):
+            response = self.client.get(reverse("news"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Noticia tecnológica")
+        self.assertNotContains(response, "news-summary")
+        self.assertNotContains(response, "news-image")
+
+
 @override_settings(
     EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
     DEFAULT_FROM_EMAIL="asistente@example.test",
@@ -489,6 +575,10 @@ class ManualNewsletterTests(TestCase):
             self.client.get(reverse("newsletter_preview")),
             "Simulación completada",
         )
+        self.assertEqual(
+            NewsletterSendAttempt.objects.get().status,
+            NewsletterSendAttempt.Status.SIMULATED,
+        )
 
     def test_missing_topics_or_news_do_not_send_or_create_attempts(self):
         user = self.make_user(
@@ -524,7 +614,7 @@ class ManualNewsletterTests(TestCase):
 
         self.assertFalse(NewsletterSendAttempt.objects.exists())
 
-    def test_throttles_repeated_requests_and_backend_failure_is_not_retried(self):
+    def test_throttles_repeated_requests_and_uncertain_send_is_not_retried(self):
         user = self.make_user(
             "throttled-sender",
             "throttled@example.test",
@@ -563,7 +653,53 @@ class ManualNewsletterTests(TestCase):
         self.assertEqual(failed_send.call_count, 1)
         self.assertEqual(NewsletterSendAttempt.objects.count(), 2)
         failed_attempt = NewsletterSendAttempt.objects.latest("created_at")
-        self.assertEqual(failed_attempt.status, NewsletterSendAttempt.Status.FAILED)
+        self.assertEqual(failed_attempt.status, NewsletterSendAttempt.Status.UNCERTAIN)
+
+    def test_backend_returning_zero_is_recorded_as_failed(self):
+        user = self.make_user(
+            "failed-sender",
+            "failed@example.test",
+            topics=["economy"],
+        )
+        self.client.force_login(user)
+        with (
+            patch(
+                "accounts.views.get_user_newsletter_preview",
+                return_value=self.available_preview(),
+            ),
+            patch("accounts.views.send_mail", return_value=0),
+        ):
+            self.post_manual_send()
+
+        self.assertEqual(
+            NewsletterSendAttempt.objects.get().status,
+            NewsletterSendAttempt.Status.FAILED,
+        )
+
+    def test_attempt_is_reserved_before_mail_without_opening_a_transaction(self):
+        user = self.make_user(
+            "reserved-before-mail",
+            "reserved@example.test",
+            topics=["economy"],
+        )
+        self.client.force_login(user)
+        transaction_depth = len(connection.atomic_blocks)
+
+        def verify_reservation(**_kwargs):
+            self.assertEqual(len(connection.atomic_blocks), transaction_depth)
+            attempt = NewsletterSendAttempt.objects.get(user=user)
+            self.assertEqual(attempt.recipient, user.email)
+            self.assertEqual(attempt.status, NewsletterSendAttempt.Status.PENDING)
+            return 1
+
+        with (
+            patch(
+                "accounts.views.get_user_newsletter_preview",
+                return_value=self.available_preview(),
+            ),
+            patch("accounts.views.send_mail", side_effect=verify_reservation),
+        ):
+            self.post_manual_send()
 
     def test_history_shows_only_the_users_latest_ten_attempts(self):
         user = self.make_user("history-owner", "history@example.test", topics=[])
@@ -598,3 +734,53 @@ class ManualNewsletterTests(TestCase):
         self.assertNotContains(response, attempts[0].recipient)
         self.assertNotContains(response, "private-other@example.test")
         self.assertEqual(NewsletterSendAttempt.objects.filter(user=user).count(), 11)
+
+
+@override_settings(
+    EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend",
+    DEFAULT_FROM_EMAIL="asistente@example.test",
+)
+class ConcurrentManualNewsletterTests(TransactionTestCase):
+    reset_sequences = True
+
+    def test_simultaneous_posts_reserve_only_one_attempt(self):
+        user = User.objects.create_user(
+            username="concurrent-sender",
+            email="concurrent@example.test",
+            password="test-password",
+            email_verified_at=timezone.now(),
+        )
+        Preferences.objects.create(user=user, newsletter_topics=["economy"])
+        preview_barrier = Barrier(2)
+        sends = []
+
+        def shared_preview(_user):
+            preview_barrier.wait(timeout=5)
+            return ManualNewsletterTests.available_preview()
+
+        def record_send(**_kwargs):
+            sends.append(True)
+            return 1
+
+        clients = [Client(), Client()]
+        for client in clients:
+            client.force_login(user)
+
+        def post(client):
+            return client.post(reverse("send_manual_newsletter"))
+
+        with (
+            patch(
+                "accounts.views.get_user_newsletter_preview",
+                side_effect=shared_preview,
+            ),
+            patch("accounts.views.send_mail", side_effect=record_send),
+        ):
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                futures = [executor.submit(post, client) for client in clients]
+                results = [future.result(timeout=10) for future in futures]
+
+        self.assertEqual(len(results), 2)
+        self.assertTrue(all(response.status_code == 302 for response in results))
+        self.assertEqual(len(sends), 1)
+        self.assertEqual(NewsletterSendAttempt.objects.filter(user=user).count(), 1)

@@ -61,7 +61,7 @@ class EmailRegistrationTests(TestCase):
         self.assertEqual(mail.outbox[0].to, [user.email])
         self.assertIn("https://trusted.example.test/verificar-email/", mail.outbox[0].body)
         login_page = self.client.get(reverse("login"))
-        self.assertContains(login_page, "Falta verificar el correo")
+        self.assertContains(login_page, "El backend de correo aceptó el mensaje")
 
     def test_duplicate_email_is_rejected_case_insensitively_by_form_and_database(self):
         User.objects.create_user(
@@ -247,9 +247,26 @@ class VerificationResendTests(TestCase):
         self.client.force_login(self.user)
 
     def test_resend_is_post_only_persists_cooldown_and_throttles(self):
+        self.assertIsNone(self.user.email_verified_at)
+        preferences = self.client.get(reverse("preferences"))
+        self.assertContains(preferences, "Reenviar verificación")
+        self.assertContains(
+            preferences,
+            f'action="{reverse("resend_verification_email")}"',
+        )
+        self.assertContains(preferences, 'method="post"')
+        self.assertContains(preferences, 'name="csrfmiddlewaretoken"')
         self.assertEqual(
             self.client.get(reverse("resend_verification_email")).status_code,
             405,
+        )
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+        csrf_client.get(reverse("preferences"))
+        self.assertEqual(
+            csrf_client.post(reverse("resend_verification_email")).status_code,
+            403,
         )
 
         response = self.client.post(reverse("resend_verification_email"))
@@ -261,7 +278,7 @@ class VerificationResendTests(TestCase):
         self.assertIsNotNone(first_sent_at)
         self.assertContains(
             self.client.get(reverse("preferences")),
-            "Te hemos enviado un nuevo enlace de verificación.",
+            "El backend de correo aceptó el mensaje",
         )
 
         throttled = self.client.post(reverse("resend_verification_email"))
@@ -302,6 +319,36 @@ class VerificationResendTests(TestCase):
 
         self.assertRedirects(sent, reverse("preferences"), fetch_redirect_response=False)
         self.assertEqual(len(mail.outbox), 1)
+        self.user.refresh_from_db()
+        self.assertIsNotNone(self.user.verification_email_sent_at)
+
+    def test_backend_returning_zero_is_reported_as_failure(self):
+        with patch("accounts.email_verification.send_mail", return_value=0):
+            response = self.client.post(reverse("resend_verification_email"))
+
+        self.assertRedirects(response, reverse("preferences"), fetch_redirect_response=False)
+        self.assertEqual(mail.outbox, [])
+        self.user.refresh_from_db()
+        self.assertIsNone(self.user.verification_email_sent_at)
+        self.assertContains(
+            self.client.get(reverse("preferences")),
+            "No se pudo enviar el correo de verificación",
+        )
+
+    def test_console_backend_is_reported_as_simulation_not_delivery(self):
+        with (
+            override_settings(
+                EMAIL_BACKEND="django.core.mail.backends.console.EmailBackend"
+            ),
+            patch("accounts.email_verification.send_mail", return_value=1),
+        ):
+            response = self.client.post(reverse("resend_verification_email"))
+
+        self.assertRedirects(response, reverse("preferences"), fetch_redirect_response=False)
+        self.assertContains(
+            self.client.get(reverse("preferences")),
+            "No se envió un correo real",
+        )
         self.user.refresh_from_db()
         self.assertIsNotNone(self.user.verification_email_sent_at)
 
