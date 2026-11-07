@@ -1,0 +1,101 @@
+<a class="skip-link" href="#main-content">Saltar al contenido</a>
+
+@if (session()?.authenticated) {
+  <div class="app-layout">
+    <aside class="sidebar" aria-label="Navegación de la aplicación">
+      <a class="brand" routerLink="/noticias">
+        <span class="brand-mark" aria-hidden="true">A</span>
+        <span>Asistente personal</span>
+      </a>
+      <details class="sidebar-menu" open>
+        <summary class="mobile-menu-toggle">Menú</summary>
+        <div class="sidebar-menu-content">
+          <nav class="site-nav" aria-label="Navegación principal">
+            <a
+              class="nav-link"
+              routerLink="/noticias"
+              routerLinkActive="is-active"
+              ariaCurrentWhenActive="page"
+            >
+              <span aria-hidden="true">◈</span> Noticias
+            </a>
+            <a
+              class="nav-link"
+              routerLink="/preferencias"
+              routerLinkActive="is-active"
+              ariaCurrentWhenActive="page"
+            >
+              <span aria-hidden="true">⚙</span> Preferencias
+            </a>
+            <a
+              class="nav-link"
+              routerLink="/boletin"
+              routerLinkActive="is-active"
+              ariaCurrentWhenActive="page"
+            >
+              <span aria-hidden="true">▤</span> Boletín
+            </a>
+            <a
+              class="nav-link"
+              routerLink="/historial"
+              routerLinkActive="is-active"
+              ariaCurrentWhenActive="page"
+            >
+              <span aria-hidden="true">↗</span> Historial
+            </a>
+          </nav>
+          <div class="sidebar-account">
+            <a class="account-link" routerLink="/preferencias">
+              <span class="account-avatar" aria-hidden="true">
+                {{ session()?.user?.username?.charAt(0)?.toUpperCase() }}
+              </span>
+              <span>
+                <strong>Mi cuenta</strong>
+                <small>{{ session()?.user?.username }}</small>
+              </span>
+            </a>
+            <button
+              class="logout-button"
+              type="button"
+              [disabled]="logoutPending()"
+              (click)="logout()"
+            >
+              <span aria-hidden="true">↪</span>
+              {{ logoutPending() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
+            </button>
+          </div>
+        </div>
+      </details>
+    </aside>
+    <div class="app-frame">
+      <main id="main-content" class="page-shell app-main">
+        @if (sessionError()) {
+          <div class="notice notice--error" role="alert">{{ sessionError() }}</div>
+        }
+        <router-outlet />
+      </main>
+      <footer class="site-footer">
+        <p>Versión local en desarrollo · Tus preferencias son privadas de tu cuenta.</p>
+      </footer>
+    </div>
+  </div>
+} @else {
+  <header class="site-header">
+    <div class="header-inner">
+      <a class="brand" routerLink="/noticias">Asistente personal</a>
+      <nav class="site-nav" aria-label="Navegación de cuenta">
+        <a routerLink="/login">Iniciar sesión</a>
+        <a class="nav-signup" routerLink="/registro">Crear cuenta</a>
+      </nav>
+    </div>
+  </header>
+  <main id="main-content" class="page-shell">
+    @if (sessionError()) {
+      <div class="notice notice--error" role="alert">{{ sessionError() }}</div>
+    }
+    <router-outlet />
+  </main>
+  <footer class="site-footer">
+    <p>Versión local en desarrollo · Tus preferencias son privadas de tu cuenta.</p>
+  </footer>
+}

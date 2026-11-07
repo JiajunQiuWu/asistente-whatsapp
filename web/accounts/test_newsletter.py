@@ -784,3 +784,244 @@ class ConcurrentManualNewsletterTests(TransactionTestCase):
         self.assertTrue(all(response.status_code == 302 for response in results))
         self.assertEqual(len(sends), 1)
         self.assertEqual(NewsletterSendAttempt.objects.filter(user=user).count(), 1)
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+class NewsletterApiTests(TestCase):
+    def setUp(self):
+        self.user = User.objects.create_user(
+            username="newsletter-api-user",
+            email="newsletter-api@example.test",
+            password="test-password",
+            email_verified_at=timezone.now(),
+        )
+        Preferences.objects.create(
+            user=self.user,
+            newsletter_topics=["economy"],
+            timezone_name="Europe/Paris",
+        )
+        self.client.force_login(self.user)
+        self.preview = NewsletterPreview(
+            generated_at=datetime(
+                2026, 10, 18, 10, 30, tzinfo=datetime_timezone.utc
+            ),
+            timezone_name="Europe/Paris",
+            newsletter_enabled=False,
+            selected_topics=("economy",),
+            articles=(
+                NewsletterArticle(
+                    "Noticia económica",
+                    "Fuente economía",
+                    "18/10/2026 12:30",
+                    "https://articles.example.test/economy",
+                    "Economía",
+                    "economy",
+                    "<p>Resumen de la noticia.</p>",
+                ),
+            ),
+            warnings=(),
+            has_selected_topics=True,
+            matched_source_count=1,
+        )
+
+    def test_preview_serializes_personalized_content_and_empty_previews(self):
+        with patch(
+            "accounts.api_views.get_user_newsletter_preview",
+            return_value=self.preview,
+        ):
+            response = self.client.get(reverse("api_newsletter_preview"))
+
+        self.assertEqual(response.status_code, 200)
+        payload = response.json()
+        self.assertEqual(payload["timezone_name"], "Europe/Paris")
+        self.assertEqual(payload["articles"][0]["title"], "Noticia económica")
+        self.assertEqual(payload["articles"][0]["summary"], "Resumen de la noticia.")
+        self.assertTrue(payload["email_verified"])
+
+        empty_preview = NewsletterPreview(
+            **{
+                **self.preview.__dict__,
+                "selected_topics": (),
+                "articles": (),
+                "has_selected_topics": False,
+                "matched_source_count": 0,
+            }
+        )
+        with patch(
+            "accounts.api_views.get_user_newsletter_preview",
+            return_value=empty_preview,
+        ):
+            empty_response = self.client.get(reverse("api_newsletter_preview"))
+        self.assertEqual(empty_response.json()["articles"], [])
+        self.assertFalse(empty_response.json()["has_selected_topics"])
+
+    def test_anonymous_preview_history_and_send_are_rejected(self):
+        self.client.logout()
+
+        preview = self.client.get(reverse("api_newsletter_preview"))
+        history = self.client.get(reverse("api_newsletter_history"))
+        send = self.client.post(
+            reverse("api_send_manual_newsletter"),
+            data="{}",
+            content_type="application/json",
+        )
+
+        self.assertEqual(preview.status_code, 401)
+        self.assertEqual(history.status_code, 401)
+        self.assertEqual(send.status_code, 401)
+
+    def test_history_is_limited_to_and_isolated_for_the_session_user(self):
+        own_attempt = NewsletterSendAttempt.objects.create(
+            user=self.user,
+            recipient=self.user.email,
+            status=NewsletterSendAttempt.Status.ACCEPTED,
+        )
+        other_user = User.objects.create_user(
+            username="another-newsletter-user",
+            email="other@example.test",
+            password="test-password",
+        )
+        NewsletterSendAttempt.objects.create(
+            user=other_user,
+            recipient=other_user.email,
+            status=NewsletterSendAttempt.Status.FAILED,
+        )
+
+        payload = self.client.get(reverse("api_newsletter_history")).json()
+
+        self.assertEqual(payload["timezone_name"], "Europe/Paris")
+        self.assertEqual([item["id"] for item in payload["attempts"]], [own_attempt.pk])
+        self.assertEqual(payload["attempts"][0]["recipient"], self.user.email)
+        self.assertEqual(payload["attempts"][0]["status_label"], "Aceptado por el servidor de correo")
+
+        empty_user = User.objects.create_user(
+            username="empty-newsletter-history",
+            email="empty-history@example.test",
+            password="test-password",
+        )
+        self.client.force_login(empty_user)
+        empty_payload = self.client.get(
+            reverse("api_newsletter_history")
+        ).json()
+        self.assertEqual(empty_payload["attempts"], [])
+
+    def test_manual_send_is_post_only_csrf_protected_and_reports_final_status(self):
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            return_value=self.preview,
+        ), patch("accounts.views.send_mail", return_value=1) as send_mail:
+            get_response = self.client.get(reverse("api_send_manual_newsletter"))
+            response = self.client.post(
+                reverse("api_send_manual_newsletter"),
+                data="{}",
+                content_type="application/json",
+            )
+
+        self.assertEqual(get_response.status_code, 405)
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], NewsletterSendAttempt.Status.ACCEPTED)
+        send_mail.assert_called_once()
+        self.assertEqual(NewsletterSendAttempt.objects.get().user, self.user)
+
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+        with patch("accounts.views.send_mail") as protected_send_mail:
+            rejected = csrf_client.post(
+                reverse("api_send_manual_newsletter"),
+                data="{}",
+                content_type="application/json",
+            )
+        self.assertEqual(rejected.status_code, 403)
+        protected_send_mail.assert_not_called()
+        self.assertEqual(NewsletterSendAttempt.objects.count(), 1)
+
+    def test_manual_send_accepts_a_valid_csrf_token(self):
+        csrf_client = Client(enforce_csrf_checks=True)
+        csrf_client.force_login(self.user)
+        csrf_client.get(reverse("api_csrf"))
+        csrf_token = csrf_client.cookies["csrftoken"].value
+
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            return_value=self.preview,
+        ), patch("accounts.views.send_mail", return_value=1) as send_mail:
+            response = csrf_client.post(
+                reverse("api_send_manual_newsletter"),
+                data="{}",
+                content_type="application/json",
+                HTTP_X_CSRFTOKEN=csrf_token,
+            )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["status"], NewsletterSendAttempt.Status.ACCEPTED)
+        send_mail.assert_called_once()
+
+    def test_unverified_empty_and_throttled_sends_do_not_send(self):
+        self.user.email_verified_at = None
+        self.user.save(update_fields={"email_verified_at"})
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            side_effect=AssertionError("unverified account must not fetch feeds"),
+        ), patch("accounts.views.send_mail") as send_mail:
+            response = self.client.post(
+                reverse("api_send_manual_newsletter"),
+                data="{}",
+                content_type="application/json",
+            )
+        self.assertEqual(response.status_code, 403)
+        send_mail.assert_not_called()
+        self.assertFalse(NewsletterSendAttempt.objects.exists())
+
+        self.user.email_verified_at = timezone.now()
+        self.user.save(update_fields={"email_verified_at"})
+        no_articles = NewsletterPreview(
+            **{**self.preview.__dict__, "articles": ()}
+        )
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            return_value=no_articles,
+        ), patch("accounts.views.send_mail") as send_mail:
+            empty_response = self.client.post(
+                reverse("api_send_manual_newsletter"),
+                data="{}",
+                content_type="application/json",
+            )
+        self.assertEqual(empty_response.status_code, 409)
+        send_mail.assert_not_called()
+
+        no_topics = NewsletterPreview(
+            **{
+                **self.preview.__dict__,
+                "selected_topics": (),
+                "articles": (),
+                "has_selected_topics": False,
+            }
+        )
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            return_value=no_topics,
+        ), patch("accounts.views.send_mail") as send_mail:
+            no_topics_response = self.client.post(
+                reverse("api_send_manual_newsletter"),
+                data="{}",
+                content_type="application/json",
+            )
+        self.assertEqual(no_topics_response.status_code, 409)
+        self.assertEqual(no_topics_response.json()["status"], "no_topics")
+        send_mail.assert_not_called()
+
+        User.objects.filter(pk=self.user.pk).update(
+            manual_newsletter_last_attempt_at=timezone.now()
+        )
+        with patch(
+            "accounts.views.get_user_newsletter_preview",
+            return_value=self.preview,
+        ), patch("accounts.views.send_mail") as send_mail:
+            throttled = self.client.post(
+                reverse("api_send_manual_newsletter"),
+                data="{}",
+                content_type="application/json",
+            )
+        self.assertEqual(throttled.status_code, 429)
+        self.assertEqual(throttled.json()["status"], "throttled")
+        send_mail.assert_not_called()

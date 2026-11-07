@@ -11,7 +11,7 @@ from django.utils import timezone
 
 from app.news import FeedConfigError, FeedSource, NewsItem, fetch_news, load_sources
 
-from .models import Preferences, User
+from .models import Preferences, TOPIC_CHOICES, User
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FEEDS_PATH = REPOSITORY_ROOT / "data" / "feeds.json"
@@ -56,6 +56,17 @@ class NewsletterPreview:
     warnings: tuple[str, ...]
     has_selected_topics: bool
     matched_source_count: int
+
+
+@dataclass(frozen=True)
+class NewsPage:
+    """Shared filtered news data for HTML and JSON responses."""
+
+    preview: NewsletterPreview
+    articles: tuple[NewsletterArticle, ...]
+    topic_filters: tuple[dict[str, str], ...]
+    active_topic: str
+    selected_topic_label: str
 
 
 def _is_http_url(value: str) -> bool:
@@ -164,4 +175,34 @@ def get_user_newsletter_preview(
         warnings=tuple(warnings),
         has_selected_topics=True,
         matched_source_count=len(selected_sources),
+    )
+
+
+def get_user_news_page(
+    user: User,
+    selected_filter: str = "",
+    preview: NewsletterPreview | None = None,
+) -> NewsPage:
+    """Build the same topic-filtered news page for Django and Angular."""
+    if preview is None:
+        preview = get_user_newsletter_preview(user)
+    topic_labels = dict(TOPIC_CHOICES)
+    topic_filters = tuple(
+        {"code": code, "label": topic_labels[code]}
+        for code in preview.selected_topics
+        if code in FEED_TOPIC_BY_PREFERENCE
+    )
+    valid_filters = {topic["code"] for topic in topic_filters}
+    active_topic = selected_filter if selected_filter in valid_filters else ""
+    articles = tuple(
+        article
+        for article in preview.articles
+        if not active_topic or article.topic_code == active_topic
+    )
+    return NewsPage(
+        preview=preview,
+        articles=articles,
+        topic_filters=topic_filters,
+        active_topic=active_topic,
+        selected_topic_label=topic_labels.get(active_topic, ""),
     )

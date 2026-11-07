@@ -18,13 +18,26 @@ RESEND_INTERVAL = timedelta(minutes=5)
 TOKEN_SALT = "accounts.email-verification"
 
 
-def build_verification_url(user: User) -> str:
-    """Devuelve un enlace firmado para la dirección actual del usuario."""
+def build_verification_url(
+    user: User,
+    frontend_base_url: str | None = None,
+) -> str:
+    """Build a signed URL for the legacy Django view or Angular route."""
     token = signing.TimestampSigner(salt=TOKEN_SALT).sign_object(
         {"user_id": user.pk, "email": user.email}
     )
-    base_url = f"{settings.EMAIL_VERIFICATION_BASE_URL.rstrip('/')}/"
-    endpoint = urljoin(base_url, reverse("verify_email").lstrip("/"))
+    base_url = (
+        frontend_base_url
+        if frontend_base_url is not None
+        else settings.EMAIL_VERIFICATION_BASE_URL
+    )
+    base_url = f"{base_url.rstrip('/')}/"
+    endpoint = urljoin(
+        base_url,
+        "verificar-email"
+        if frontend_base_url is not None
+        else reverse("verify_email").lstrip("/"),
+    )
     return f"{endpoint}?{urlencode({'token': token})}"
 
 
@@ -55,7 +68,34 @@ def load_verification_user(token: str) -> User | None:
         return None
 
 
-def send_verification_email(user: User) -> str:
+def verify_email_token(token: str, confirm: bool) -> tuple[User | None, str]:
+    """Validate a signed email token and optionally confirm its address."""
+    user = load_verification_user(token)
+    if user is None:
+        return None, "invalid"
+    if user.email_verified_at is not None:
+        return user, "already_verified"
+    if not confirm:
+        return user, "confirm"
+
+    verified = User.objects.filter(
+        pk=user.pk,
+        email=user.email,
+        email_verified_at__isnull=True,
+    ).update(email_verified_at=timezone.now())
+    if verified:
+        return user, "verified"
+
+    user.refresh_from_db(fields=["email_verified_at"])
+    if user.email_verified_at is not None:
+        return user, "already_verified"
+    return None, "invalid"
+
+
+def send_verification_email(
+    user: User,
+    frontend_base_url: str | None = None,
+) -> str:
     """Envía un enlace si han pasado cinco minutos desde el envío anterior."""
     current_user = User.objects.get(pk=user.pk)
     if not current_user.email:
@@ -79,7 +119,7 @@ def send_verification_email(user: User) -> str:
     if not claimed:
         return "throttled"
 
-    verification_url = build_verification_url(current_user)
+    verification_url = build_verification_url(current_user, frontend_base_url)
     sent = False
     try:
         sent = (

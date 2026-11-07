@@ -244,7 +244,7 @@ $env:EMAIL_TIMEOUT = "10"
 $env:EMAIL_HOST_USER = $env:GMAIL_ADDRESS
 $env:DEFAULT_FROM_EMAIL = $env:GMAIL_ADDRESS
 $env:EMAIL_VERIFICATION_BASE_URL = "http://localhost:8000"
-.\.venv\Scripts\python.exe web\manage.py runserver 127.0.0.1:8000
+.\.venv\Scripts\python.exe web\manage.py runserver localhost:8000
 ```
 
 El backend web reutiliza la recuperación segura de keyring de la CLI y nunca
@@ -255,15 +255,18 @@ la contraseña en el entorno ni en keyring, Django se detiene con un mensaje de
 configuración claro. Gmail usa STARTTLS, puerto 587 y timeout de 10 segundos.
 El origen de los enlaces se toma únicamente de
 `EMAIL_VERIFICATION_BASE_URL`, no de la cabecera `Host`; usa una URL bajo tu
-control. En local el valor predeterminado es `http://localhost:8000`.
+control. En local el valor predeterminado es `http://localhost:8000`. Los
+registros y reenvíos desde Angular usan `ANGULAR_FRONTEND_BASE_URL` para
+construir el enlace de la SPA; los formularios Django conservados usan la ruta
+HTML original.
 
 Arranca el servidor **solo en la interfaz local**, desde la raíz:
 
 ```powershell
-.\.venv\Scripts\python.exe web\manage.py runserver 127.0.0.1:8000
+.\.venv\Scripts\python.exe web\manage.py runserver localhost:8000
 ```
 
-Abre `http://127.0.0.1:8000/`. Al registrarte, indica un correo válido y se
+Abre `http://localhost:8000/`. Al registrarte, indica un correo válido y se
 enviará un enlace de verificación con caducidad de 24 horas. El enlace primero
 muestra una confirmación; solo el formulario POST protegido por CSRF verifica
 la dirección, por lo que una previsualización o un escáner que abra el enlace
@@ -273,7 +276,7 @@ registro y el inicio de sesión no dependen de que el correo ya esté verificado
 Al guardar preferencias también se muestra una confirmación. Los errores de
 validación aparecen junto al campo correspondiente; las contraseñas no se
 vuelven a rellenar si el registro falla.
-Administra usuarios y preferencias en `http://127.0.0.1:8000/admin/`.
+Administra usuarios y preferencias en `http://localhost:8000/admin/`.
 
 La interfaz comparte una plantilla base y estilos locales en
 `web\accounts\templates\accounts` y `web\accounts\static\accounts\css\site.css`.
@@ -286,8 +289,8 @@ verificado y pendiente y aclara que el envío automático todavía no está
 programado. Las preferencias conservan correo, boletín, temas y alertas. El
 sitio se identifica como versión local en desarrollo y no envía alertas.
 
-Con la sesión iniciada, abre `http://127.0.0.1:8000/noticias/` para consultar
-noticias de los temas elegidos, o `http://127.0.0.1:8000/boletin/` para la vista
+Con la sesión iniciada, abre `http://localhost:8000/noticias/` para consultar
+noticias de los temas elegidos, o `http://localhost:8000/boletin/` para la vista
 previa, el envío manual y el historial. Ambas vistas usan los temas del boletín,
 no los de alertas, y muestran fecha y hora según tu zona horaria.
 Aunque el envío automático esté desactivado, puedes solicitar manualmente el
@@ -321,16 +324,112 @@ CLI para conservar la cobertura existente:
 .\.venv\Scripts\python.exe web\manage.py test accounts
 ```
 
-Para probar manualmente en desarrollo, deja configurado el backend de consola
-(el predeterminado), registra una cuenta, copia el enlace de verificación que
-aparece en la terminal y confirma mediante el formulario. Después, elige temas
-con fuentes disponibles y solicita «Enviarme mi boletín» desde la vista previa.
-El correo se simula en la consola; no configures SMTP ni uses una cuenta real
-durante las pruebas. Puedes comprobar el resultado y el límite de cinco minutos
-en el historial de la misma página.
+Para comprobar las plantillas HTML conservadas durante la migración, deja
+configurado el backend de consola (el predeterminado), registra una cuenta,
+copia el enlace de verificación que aparece en la terminal y confirma mediante
+el formulario. Después, elige temas con fuentes disponibles y solicita
+«Enviarme mi boletín» desde la vista previa Django. El correo se simula en la
+consola; no configures SMTP ni uses una cuenta real durante las pruebas. Para
+la navegación habitual en Angular y sus rutas del boletín, sigue los pasos de
+la sección siguiente.
 
 La base de datos web, archivos `.env*` y configuración local se excluyen de
 Git. `DEBUG` está habilitado y la clave de respaldo de settings es solo para
 desarrollo: no expongas este servidor ni uses esta configuración en producción.
 No hay recuperación de contraseña, cambio de correo desde la web, programación
 diaria, alertas reales ni integración con WhatsApp.
+
+## Migración progresiva a Angular
+
+La migración añade una aplicación Angular standalone en `frontend\`. El
+lockfile resuelve Angular 22.2.4, Angular CLI 22.2.6 y TypeScript 6.0.3; se
+comprobó con Node 24.21.0 y npm 11.19.0. El frontend usa TypeScript estricto;
+el backend conserva Django, SQLite, modelos y lógica de
+autenticación/noticias. No hace falta configurar variables de entorno nuevas
+para el desarrollo local ni cambiar el backend de correo.
+
+Para desarrollo, inicia Django en una terminal desde la raíz del repositorio:
+
+```powershell
+.\.venv\Scripts\python.exe web\manage.py migrate
+.\.venv\Scripts\python.exe web\manage.py runserver localhost:8000
+```
+
+En otra terminal, instala las dependencias del frontend una vez e inicia Angular:
+
+```powershell
+Set-Location frontend
+npm install
+npm start
+```
+
+Abre **`http://localhost:4200/`**; la aplicación redirige a `/noticias` y
+solicita el inicio de sesión si no hay una sesión Django activa. Usa `localhost`
+en ambos servidores y en el navegador; no mezcles `localhost` con
+`127.0.0.1`, ya que las cookies de sesión y CSRF se vinculan al nombre del
+host. Angular envía sus llamadas relativas `/api/` mediante
+`frontend\proxy.conf.json` a `http://localhost:8000`; su cliente HTTP obtiene
+primero la cookie CSRF y envía `csrftoken` en la cabecera `X-CSRFToken`.
+El proxy conserva el `Host` local del navegador para que Django pueda validar
+el origen de Angular sin desactivar CSRF ni añadir otros orígenes confiables.
+
+La API ofrece `GET /api/csrf/`, `GET /api/session/`, `POST /api/login/`,
+`POST /api/logout/`, `GET /api/news/?tema=technology`, `POST /api/register/`,
+`GET /api/verify-email/?token=...`, `POST /api/verify-email/confirm/`,
+`GET /api/preferences/`, `POST /api/preferences/save/` y
+`POST /api/preferences/resend-verification/`, `GET /api/newsletter/`,
+`POST /api/newsletter/send/` y `GET /api/newsletter/history/`. Django valida
+los formularios, mantiene la sesión, protege las escrituras con CSRF y limita
+las preferencias, vista previa e historial al usuario autenticado.
+La salida Angular está en `frontend\src\`; los estilos actuales se cargan
+directamente desde `web\accounts\static\accounts\css\site.css`.
+
+Angular contiene las pantallas de login, registro, verificación de correo,
+preferencias, Noticias con filtro por tema, vista previa del boletín y su
+historial. El envío manual es síncrono: la API solo informa del resultado
+después de que Django termine de llamar al backend de correo; «aceptado» no
+garantiza la entrega. Se mantienen la verificación obligatoria, el destinatario
+de la sesión y el límite de un intento cada cinco minutos. Registro y reenvío
+generan enlaces firmados a `ANGULAR_FRONTEND_BASE_URL/verificar-email`; el token
+sigue teniendo caducidad de 24 horas, solo se consume al confirmar con POST y
+continúa ligado al usuario y correo actuales. En desarrollo
+`ANGULAR_FRONTEND_BASE_URL` toma por defecto `http://localhost:4200`; en
+producción el valor predeterminado es `EMAIL_VERIFICATION_BASE_URL`. Si la SPA
+pública tiene otro origen, configura `ANGULAR_FRONTEND_BASE_URL` antes de
+iniciar Django, por ejemplo:
+
+```powershell
+$env:ANGULAR_FRONTEND_BASE_URL = "https://app.ejemplo.com"
+```
+
+No es necesario cambiar `EMAIL_VERIFICATION_BASE_URL`, el backend de correo ni
+otras variables existentes. Si la SPA se sirve bajo una ruta base, ajusta
+también el `base href` de Angular. Para producción, publica el frontend y
+enruta `/api/` al mismo origen para conservar las cookies de sesión y CSRF sin
+CORS. Las plantillas y URLs Django originales, incluidas `/boletin/` y
+`/boletin/enviar/`, permanecen disponibles para comparar la migración; la
+navegación habitual de Angular usa `/boletin` y `/historial`.
+
+Prueba el flujo migrado en `http://localhost:4200/registro`: crea una cuenta;
+con el backend de consola, copia de la consola Django el enlace que termina en
+`/verificar-email?token=...`, ábrelo y confirma. Luego inicia sesión en
+`/login`, guarda o modifica los temas, horario, zona y alertas en
+`/preferencias`, y prueba «Reenviar verificación» (el segundo envío inmediato
+se limita durante cinco minutos). También puedes abrir directamente
+`http://localhost:4200/registro`, `/verificar-email?token=...` o
+`/preferencias`; la última ruta requiere sesión. Tras verificar el correo,
+inicia sesión, selecciona al menos un tema con fuentes disponibles y abre
+`http://localhost:4200/boletin`. Solicita el envío manual allí; con el backend
+de consola se registra una simulación, no un correo real. Consulta el estado y
+el destinatario en `http://localhost:4200/historial`. La pantalla del boletín
+también informa si el correo no está verificado y enlaza a la verificación;
+desde `/preferencias` puedes reenviar el enlace.
+
+Para comprobar la implementación:
+
+```powershell
+.\.venv\Scripts\python.exe web\manage.py test accounts
+Set-Location frontend
+npm run build
+npm test
+```

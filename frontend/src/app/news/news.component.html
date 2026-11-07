@@ -1,0 +1,201 @@
+<section class="news-dashboard" aria-labelledby="page-title">
+  <div class="page-heading news-heading">
+    <p class="eyebrow">Tu espacio personal</p>
+    <h1 id="page-title">Tus noticias de hoy</h1>
+    <p>Un resumen de los temas que te interesan</p>
+  </div>
+
+  @if (loading()) {
+    <p class="notice notice--info" role="status">Cargando tus noticias…</p>
+  } @else if (error()) {
+    <p class="notice notice--error" role="alert">
+      {{ error() }}
+      @if (loginRequired()) {
+        <a routerLink="/login">Iniciar sesión</a>
+      }
+    </p>
+  } @else if (data(); as news) {
+    @if (news.warnings.length > 0) {
+      <div class="feed-warnings" aria-label="Avisos de fuentes">
+        @for (warning of news.warnings; track warning) {
+          <p class="notice notice--error" role="alert">{{ warning }}</p>
+        }
+      </div>
+    }
+
+    <div class="dashboard-grid">
+      <div class="news-column">
+        <div class="news-list-heading">
+          <div>
+            <h2>Noticias seleccionadas</h2>
+            <p>
+              Actualizado el {{ news.generated_at }}
+              ({{ news.timezone_name }})
+            </p>
+          </div>
+          <a class="text-link" routerLink="/boletin">
+            Ver boletín e historial
+          </a>
+        </div>
+
+        @if (news.topic_filters.length > 0) {
+          <nav class="topic-filters" aria-label="Filtrar noticias por tema">
+            <a
+              class="filter-chip"
+              [class.is-active]="!news.active_topic"
+              [attr.aria-current]="!news.active_topic ? 'page' : null"
+              [routerLink]="[]"
+              [queryParams]="{ tema: null }"
+            >
+              Todos
+            </a>
+            @for (topic of news.topic_filters; track topic.code) {
+              <a
+                class="filter-chip"
+                [class.is-active]="news.active_topic === topic.code"
+                [attr.aria-current]="news.active_topic === topic.code ? 'page' : null"
+                [routerLink]="[]"
+                [queryParams]="{ tema: topic.code }"
+              >
+                {{ topic.label }}
+              </a>
+            }
+          </nav>
+        }
+
+        @if (!news.has_selected_topics) {
+          <section class="card empty-state" aria-labelledby="empty-heading">
+            <span class="empty-state-icon" aria-hidden="true">◇</span>
+            <h2 id="empty-heading">Aún no has elegido temas</h2>
+            <p>Selecciona uno o varios temas para consultar noticias de tu interés.</p>
+            <a class="button button--primary" routerLink="/preferencias">
+              Elegir temas
+            </a>
+          </section>
+        } @else if (news.articles.length > 0) {
+          <ol class="news-list">
+            @for (article of news.articles; track article.link) {
+              <li
+                class="card news-card"
+                [class.news-card--with-image]="!!article.image_url"
+              >
+                @if (article.image_url) {
+                  <img
+                    class="news-image"
+                    [src]="article.image_url"
+                    alt=""
+                    loading="lazy"
+                    decoding="async"
+                    referrerpolicy="no-referrer"
+                  />
+                }
+                <div class="news-card-content">
+                  @if (article.topic) {
+                    <span class="topic-tag">{{ article.topic }}</span>
+                  }
+                  <h3>
+                    <a
+                      [href]="article.link"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      referrerpolicy="no-referrer"
+                    >
+                      {{ article.title }}
+                    </a>
+                  </h3>
+                  <p class="news-meta">
+                    <span>{{ article.source }}</span>
+                    @if (article.published) {
+                      <span aria-hidden="true">·</span>
+                      <time>{{ article.published }}</time>
+                    }
+                  </p>
+                  @if (article.summary) {
+                    <p class="news-summary">{{ article.summary }}</p>
+                  }
+                </div>
+              </li>
+            }
+          </ol>
+        } @else {
+          <section class="card empty-state" aria-labelledby="empty-heading">
+            <span class="empty-state-icon" aria-hidden="true">◌</span>
+            @if (news.active_topic) {
+              <h2 id="empty-heading">
+                No hay noticias de {{ news.selected_topic_label }}
+              </h2>
+              <p>No se encontraron noticias para este tema en la consulta actual.</p>
+            } @else if (news.matched_source_count > 0) {
+              <h2 id="empty-heading">No hay noticias disponibles</h2>
+              <p>No se encontraron noticias en las fuentes de los temas que elegiste.</p>
+            } @else {
+              <h2 id="empty-heading">Aún no hay fuentes para tus temas</h2>
+              <p>Las fuentes configuradas todavía no incluyen los temas seleccionados.</p>
+            }
+            <a class="text-link" routerLink="/preferencias">
+              Revisar preferencias
+            </a>
+          </section>
+        }
+      </div>
+
+      <aside class="dashboard-aside" aria-label="Información del boletín">
+        <section class="card info-card" aria-labelledby="briefing-heading">
+          <div class="info-card-heading">
+            <span class="info-icon info-icon--blue" aria-hidden="true">▤</span>
+            <div>
+              <h2 id="briefing-heading">Tu boletín</h2>
+              <p>Tu configuración actual</p>
+            </div>
+          </div>
+          <dl class="briefing-details">
+            <div>
+              <dt>Horario</dt>
+              <dd>
+                @if (news.newsletter_time) {
+                  {{ news.newsletter_time }} · {{ news.timezone_name }}
+                } @else {
+                  Sin configurar
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Correo</dt>
+              <dd>
+                @if (news.email_verified) {
+                  <span class="status-dot status-dot--verified"></span> Verificado
+                } @else {
+                  <span class="status-dot status-dot--pending"></span>
+                  Pendiente de verificación
+                }
+              </dd>
+            </div>
+            <div>
+              <dt>Preferencia de envío</dt>
+              <dd>{{ news.newsletter_enabled ? 'Activada' : 'Desactivada' }}</dd>
+            </div>
+          </dl>
+          <p class="info-note">
+            El horario se guarda como preferencia; los envíos automáticos aún no están programados.
+          </p>
+          <a class="text-link" routerLink="/preferencias">
+            Editar configuración <span aria-hidden="true">→</span>
+          </a>
+        </section>
+
+        <section class="card info-card whatsapp-card" aria-labelledby="whatsapp-heading">
+          <div class="info-card-heading">
+            <span class="info-icon info-icon--teal" aria-hidden="true">◉</span>
+            <div>
+              <h2 id="whatsapp-heading">WhatsApp</h2>
+              <p><span class="coming-soon">Próximamente</span></p>
+            </div>
+          </div>
+          <p>
+            Estamos preparando esta opción para que puedas recibir tu resumen diario por WhatsApp.
+          </p>
+        </section>
+      </aside>
+    </div>
+  }
+</section>

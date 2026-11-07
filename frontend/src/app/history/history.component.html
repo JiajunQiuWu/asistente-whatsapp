@@ -1,0 +1,68 @@
+<section class="newsletter-page preferences-page" aria-labelledby="page-title">
+  <div class="page-heading">
+    <p class="eyebrow">Tu resumen personal</p>
+    <h1 id="page-title">Historial del boletín</h1>
+    <p>Los diez intentos manuales más recientes de esta cuenta.</p>
+  </div>
+
+  <p><a class="text-link" routerLink="/boletin">Volver a la vista previa</a></p>
+
+  <section class="card history-card" aria-labelledby="attempts-heading">
+    <div class="section-heading">
+      <span class="section-number" aria-hidden="true">↗</span>
+      <div>
+        <h2 id="attempts-heading">Tus últimos intentos</h2>
+        <p>La hora se muestra en la zona horaria de tus preferencias.</p>
+      </div>
+    </div>
+
+    @if (loading()) {
+      <p class="notice notice--info" role="status">Cargando el historial…</p>
+    } @else if (error()) {
+      <p class="notice notice--error" role="alert">
+        {{ error() }}
+        @if (loginRequired()) {
+          <a routerLink="/login">Iniciar sesión</a>
+        }
+      </p>
+    } @else if (history(); as result) {
+      @if (result.attempts.length > 0) {
+        <div class="table-scroll">
+          <table class="attempt-table">
+            <thead>
+              <tr>
+                <th scope="col">Fecha</th>
+                <th scope="col">Destinatario</th>
+                <th scope="col">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (attempt of result.attempts; track attempt.id) {
+                <tr>
+                  <td>
+                    <time [attr.datetime]="attempt.created_at">
+                      {{ formatDate(attempt.created_at, result.timezone_name) }}
+                    </time>
+                  </td>
+                  <td>{{ attempt.recipient }}</td>
+                  <td>
+                    <span
+                      class="attempt-status"
+                      [class.attempt-status--accepted]="attempt.status === 'accepted'"
+                      [class.attempt-status--simulated]="attempt.status === 'simulated'"
+                      [class.attempt-status--failed]="attempt.status === 'failed' || attempt.status === 'uncertain'"
+                    >
+                      {{ attempt.status_label }}
+                    </span>
+                  </td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      } @else {
+        <p class="empty-history">Aún no has solicitado ningún envío manual.</p>
+      }
+    }
+  </section>
+</section>

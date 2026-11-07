@@ -1,0 +1,131 @@
+<section class="card auth-card" aria-labelledby="page-title">
+  <div class="card-heading">
+    <p class="eyebrow">Empieza aquí</p>
+    <h1 id="page-title">Crear cuenta</h1>
+    <p>Indica tu correo, elige un nombre de usuario y crea una contraseña segura.</p>
+  </div>
+
+  @if (result(); as response) {
+    <div
+      class="notice"
+      [class.notice--success]="response.email_status === 'sent'"
+      [class.notice--error]="response.email_status === 'failed'"
+      role="status"
+    >
+      {{ response.message }}
+    </div>
+    <p class="form-alternative">
+      <a routerLink="/login">Ir a iniciar sesión</a>
+    </p>
+  } @else {
+    <form class="form-stack" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      @if (error()) {
+        <div class="form-errors" role="alert">{{ error() }}</div>
+      }
+
+      <div
+        class="form-field"
+        [class.form-field--invalid]="errorsFor('username').length > 0 || (form.controls.username.invalid && form.controls.username.touched)"
+      >
+        <label for="username">Nombre de usuario</label>
+        <input
+          id="username"
+          type="text"
+          formControlName="username"
+          autocomplete="username"
+          required
+          [attr.aria-invalid]="errorsFor('username').length > 0"
+        />
+        @for (message of errorsFor('username'); track message) {
+          <p class="field-error" role="alert">{{ message }}</p>
+        }
+        @if (form.controls.username.invalid && form.controls.username.touched && errorsFor('username').length === 0) {
+          <p class="field-error" role="alert">Indica un nombre de usuario.</p>
+        }
+      </div>
+
+      <div
+        class="form-field"
+        [class.form-field--invalid]="errorsFor('email').length > 0 || (form.controls.email.invalid && form.controls.email.touched)"
+      >
+        <label for="email">Correo electrónico</label>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          autocomplete="email"
+          required
+          [attr.aria-invalid]="errorsFor('email').length > 0"
+        />
+        @for (message of errorsFor('email'); track message) {
+          <p class="field-error" role="alert">{{ message }}</p>
+        }
+        @if (form.controls.email.hasError('required') && form.controls.email.touched && errorsFor('email').length === 0) {
+          <p class="field-error" role="alert">Indica tu correo electrónico.</p>
+        } @else if (form.controls.email.hasError('email') && form.controls.email.touched && errorsFor('email').length === 0) {
+          <p class="field-error" role="alert">Introduce una dirección de correo válida.</p>
+        }
+      </div>
+
+      <div
+        class="form-field"
+        [class.form-field--invalid]="errorsFor('password1').length > 0 || (form.controls.password1.invalid && form.controls.password1.touched)"
+      >
+        <label for="password1">Contraseña</label>
+        <input
+          id="password1"
+          type="password"
+          formControlName="password1"
+          autocomplete="new-password"
+          required
+          [attr.aria-invalid]="errorsFor('password1').length > 0"
+        />
+        <div class="help-text">
+          La contraseña no puede ser demasiado común, numérica ni similar a tus datos.
+          Django comprobará además la longitud mínima.
+        </div>
+        @for (message of errorsFor('password1'); track message) {
+          <p class="field-error" role="alert">{{ message }}</p>
+        }
+        @if (form.controls.password1.invalid && form.controls.password1.touched && errorsFor('password1').length === 0) {
+          <p class="field-error" role="alert">Indica una contraseña.</p>
+        }
+      </div>
+
+      <div
+        class="form-field"
+        [class.form-field--invalid]="errorsFor('password2').length > 0 || (form.hasError('passwordMismatch') && form.controls.password2.touched)"
+      >
+        <label for="password2">Confirmar contraseña</label>
+        <input
+          id="password2"
+          type="password"
+          formControlName="password2"
+          autocomplete="new-password"
+          required
+          [attr.aria-invalid]="errorsFor('password2').length > 0 || form.hasError('passwordMismatch')"
+        />
+        @if (form.hasError('passwordMismatch') && form.controls.password2.touched) {
+          <p class="field-error" role="alert">Las contraseñas no coinciden.</p>
+        }
+        @for (message of errorsFor('password2'); track message) {
+          <p class="field-error" role="alert">{{ message }}</p>
+        }
+        @if (form.controls.password2.hasError('required') && form.controls.password2.touched && errorsFor('password2').length === 0) {
+          <p class="field-error" role="alert">Confirma tu contraseña.</p>
+        }
+      </div>
+
+      <button
+        class="button button--primary button--full"
+        type="submit"
+        [disabled]="loading()"
+      >
+        {{ loading() ? 'Creando cuenta…' : 'Crear mi cuenta' }}
+      </button>
+    </form>
+    <p class="form-alternative">
+      ¿Ya tienes cuenta? <a routerLink="/login">Inicia sesión</a>.
+    </p>
+  }
+</section>

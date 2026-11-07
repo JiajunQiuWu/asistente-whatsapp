@@ -1,0 +1,191 @@
+<section class="preferences-page" aria-labelledby="page-title">
+  <div class="page-heading">
+    <p class="eyebrow">Tu espacio personal</p>
+    <h1 id="page-title">Mis preferencias</h1>
+    <p>Estas opciones pertenecen a tu cuenta. Guardarlas no envía boletines ni alertas.</p>
+  </div>
+
+  @if (loading()) {
+    <p class="notice notice--info" role="status">Cargando tus preferencias…</p>
+  } @else {
+    @if (error()) {
+      <div class="notice notice--error" role="alert">
+        {{ error() }}
+        @if (sessionExpired()) {
+          <a routerLink="/login">Iniciar sesión</a>
+        }
+      </div>
+    }
+    @if (confirmation()) {
+      <div class="notice notice--success" role="status">{{ confirmation() }}</div>
+    }
+
+    @if (data(); as account) {
+      <section class="card preference-section" aria-labelledby="email-heading">
+        <div class="section-heading">
+          <span class="section-number" aria-hidden="true">04</span>
+          <div>
+            <h2 id="email-heading">Correo electrónico</h2>
+            @if (account.email_verified_at) {
+              <p>
+                {{ account.email }} · Verificado el
+                {{ account.email_verified_at | date: 'dd/MM/yyyy HH:mm' }}.
+              </p>
+            } @else if (account.email) {
+              <p>{{ account.email }} · Pendiente de verificación.</p>
+            } @else {
+              <p>Esta cuenta no tiene una dirección de correo configurada.</p>
+            }
+          </div>
+        </div>
+        @if (account.email && !account.email_verified_at) {
+          <button
+            class="button button--quiet"
+            type="button"
+            [disabled]="resending()"
+            (click)="resendVerification()"
+          >
+            {{ resending() ? 'Enviando…' : 'Reenviar verificación' }}
+          </button>
+        }
+      </section>
+
+      <form class="preferences-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+        <section class="card preference-section" aria-labelledby="newsletter-heading">
+          <div class="section-heading">
+            <span class="section-number" aria-hidden="true">01</span>
+            <div>
+              <h2 id="newsletter-heading">Boletín</h2>
+              <p>Configura cuándo y en qué zona horaria prefieres recibirlo.</p>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="form-field">
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="newsletter_enabled" />
+                <span>Activar boletín</span>
+              </label>
+            </div>
+            <div
+              class="form-field"
+              [class.form-field--invalid]="errorsFor('newsletter_time').length > 0"
+            >
+              <label for="newsletter-time">Hora del boletín</label>
+              <input id="newsletter-time" type="time" formControlName="newsletter_time" />
+              @for (message of errorsFor('newsletter_time'); track message) {
+                <p class="field-error" role="alert">{{ message }}</p>
+              }
+              @if (form.controls.newsletter_time.invalid && form.controls.newsletter_time.touched && errorsFor('newsletter_time').length === 0) {
+                <p class="field-error" role="alert">Indica una hora válida.</p>
+              }
+            </div>
+            <div
+              class="form-field"
+              [class.form-field--invalid]="errorsFor('timezone_name').length > 0"
+            >
+              <label for="timezone-name">Zona horaria (por ejemplo, Europe/Madrid)</label>
+              <input id="timezone-name" type="text" formControlName="timezone_name" />
+              @for (message of errorsFor('timezone_name'); track message) {
+                <p class="field-error" role="alert">{{ message }}</p>
+              }
+              @if (form.controls.timezone_name.invalid && form.controls.timezone_name.touched && errorsFor('timezone_name').length === 0) {
+                <p class="field-error" role="alert">Indica una zona horaria.</p>
+              }
+            </div>
+          </div>
+        </section>
+
+        <section class="card preference-section" aria-labelledby="topics-heading">
+          <div class="section-heading">
+            <span class="section-number" aria-hidden="true">02</span>
+            <div>
+              <h2 id="topics-heading">Temas</h2>
+              <p>Elige los temas que te interesan para el boletín.</p>
+            </div>
+          </div>
+          <fieldset class="choice-field">
+            <legend>Temas del boletín</legend>
+            <div class="topic-choice-grid">
+              @for (topic of topics(); track topic.code) {
+                <label class="topic-choice">
+                  <input
+                    type="checkbox"
+                    [checked]="hasTopic('newsletter_topics', topic.code)"
+                    (change)="toggleTopic('newsletter_topics', topic.code, $event)"
+                  />
+                  <span>{{ topic.label }}</span>
+                </label>
+              }
+            </div>
+          </fieldset>
+          @for (message of errorsFor('newsletter_topics'); track message) {
+            <p class="field-error" role="alert">{{ message }}</p>
+          }
+        </section>
+
+        <section class="card preference-section" aria-labelledby="alerts-heading">
+          <div class="section-heading">
+            <span class="section-number" aria-hidden="true">03</span>
+            <div>
+              <h2 id="alerts-heading">Alertas</h2>
+              <p>Las alertas tienen su propia selección de temas y un límite diario.</p>
+            </div>
+          </div>
+          <div class="field-grid">
+            <div class="form-field">
+              <label class="checkbox-label">
+                <input type="checkbox" formControlName="alerts_enabled" />
+                <span>Activar alertas</span>
+              </label>
+            </div>
+            <div
+              class="form-field"
+              [class.form-field--invalid]="errorsFor('daily_alert_limit').length > 0"
+            >
+              <label for="daily-alert-limit">Máximo de alertas diarias (1–10)</label>
+              <input
+                id="daily-alert-limit"
+                type="number"
+                min="1"
+                max="10"
+                formControlName="daily_alert_limit"
+              />
+              @for (message of errorsFor('daily_alert_limit'); track message) {
+                <p class="field-error" role="alert">{{ message }}</p>
+              }
+              @if (form.controls.daily_alert_limit.invalid && form.controls.daily_alert_limit.touched && errorsFor('daily_alert_limit').length === 0) {
+                <p class="field-error" role="alert">El límite debe estar entre 1 y 10.</p>
+              }
+            </div>
+            <div class="form-field form-field--choices">
+              <fieldset class="choice-field">
+                <legend>Temas de alertas</legend>
+                <div class="topic-choice-grid">
+                  @for (topic of topics(); track topic.code) {
+                    <label class="topic-choice">
+                      <input
+                        type="checkbox"
+                        [checked]="hasTopic('alert_topics', topic.code)"
+                        (change)="toggleTopic('alert_topics', topic.code, $event)"
+                      />
+                      <span>{{ topic.label }}</span>
+                    </label>
+                  }
+                </div>
+              </fieldset>
+              @for (message of errorsFor('alert_topics'); track message) {
+                <p class="field-error" role="alert">{{ message }}</p>
+              }
+            </div>
+          </div>
+        </section>
+
+        <div class="form-actions">
+          <button class="button button--primary" type="submit" [disabled]="saving()">
+            {{ saving() ? 'Guardando…' : 'Guardar preferencias' }}
+          </button>
+        </div>
+      </form>
+    }
+  }
+</section>

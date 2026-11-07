@@ -14,7 +14,7 @@ SECRET_KEY = os.environ.get(
     "django-insecure-local-development-only-change-before-deployment",
 )
 
-# El sitio es exclusivamente local: runserver se documenta ligado a 127.0.0.1.
+# El sitio es exclusivamente local durante el desarrollo.
 DEBUG = True
 ALLOWED_HOSTS = ["127.0.0.1", "localhost"]
 
@@ -130,6 +130,10 @@ DEFAULT_FROM_EMAIL = os.environ.get(
 EMAIL_VERIFICATION_BASE_URL = os.environ.get(
     "EMAIL_VERIFICATION_BASE_URL",
     "http://localhost:8000",
+)
+ANGULAR_FRONTEND_BASE_URL = os.environ.get(
+    "ANGULAR_FRONTEND_BASE_URL",
+    "http://localhost:4200" if DEBUG else EMAIL_VERIFICATION_BASE_URL,
 )
 
 if SMTP_SELECTED:

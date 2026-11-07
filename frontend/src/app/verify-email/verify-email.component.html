@@ -1,0 +1,39 @@
+<section class="card auth-card" aria-labelledby="page-title">
+  <div class="card-heading">
+    <p class="eyebrow">Verificación de correo</p>
+    @if (state() === 'loading') {
+      <h1 id="page-title">Comprobando enlace…</h1>
+      <p role="status">El enlace caduca a las 24 horas.</p>
+    } @else if (state() === 'confirm') {
+      <h1 id="page-title">Confirma tu dirección</h1>
+      <p>Verifica {{ email() }}. El enlace caduca a las 24 horas.</p>
+      @if (message()) {
+        <p class="notice notice--error" role="alert">{{ message() }}</p>
+      }
+      <button
+        class="button button--primary button--full"
+        type="button"
+        [disabled]="loading()"
+        (click)="confirm()"
+      >
+        {{ loading() ? 'Verificando…' : 'Verificar correo' }}
+      </button>
+    } @else if (state() === 'verified') {
+      <h1 id="page-title">Correo verificado</h1>
+      <p>La dirección {{ email() }} ya está verificada.</p>
+      <a class="button button--primary" routerLink="/login">Iniciar sesión</a>
+    } @else if (state() === 'already_verified') {
+      <h1 id="page-title">Enlace ya utilizado</h1>
+      <p>Esta dirección de correo ya se había verificado.</p>
+      <a routerLink="/login">Iniciar sesión</a>
+    } @else if (state() === 'missing') {
+      <h1 id="page-title">Necesitas el enlace de verificación</h1>
+      <p role="status">{{ message() }}</p>
+      <a routerLink="/preferencias">Ir a preferencias para reenviar el enlace</a>
+    } @else {
+      <h1 id="page-title">Enlace no válido</h1>
+      <p role="alert">{{ message() }}</p>
+      <a routerLink="/login">Iniciar sesión</a>
+    }
+  </div>
+</section>
