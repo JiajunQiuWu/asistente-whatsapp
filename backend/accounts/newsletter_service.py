@@ -1,17 +1,21 @@
 """Obtención de la vista previa de noticias según las preferencias del usuario."""
 
+import smtplib
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlsplit
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 from django.conf import settings
+from django.core.mail import send_mail
+from django.db import OperationalError, transaction
+from django.db.models import Q
 from django.utils import timezone
 
 from app.news import FeedConfigError, FeedSource, NewsItem, fetch_news, load_sources
 
-from .models import Preferences, TOPIC_CHOICES, User
+from .models import NewsletterSendAttempt, Preferences, TOPIC_CHOICES, User
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 FEEDS_PATH = REPOSITORY_ROOT / "data" / "feeds.json"
@@ -28,11 +32,38 @@ PREFERENCE_BY_FEED_TOPIC = {
     for preference_topic, feed_topic in FEED_TOPIC_BY_PREFERENCE.items()
 }
 MAX_NEWS_ITEMS = 5
+NEWSLETTER_SEND_INTERVAL = timedelta(minutes=5)
+
+MANUAL_NEWSLETTER_MESSAGES = {
+    "email_unverified": "Verifica tu correo antes de solicitar un boletín.",
+    "no_topics": "Elige al menos un tema antes de solicitar el envío del boletín.",
+    "no_news": "No hay noticias disponibles para tus temas; no se ha enviado el boletín.",
+    "throttled": (
+        "Ya has solicitado un boletín recientemente. "
+        "Espera cinco minutos antes de volver a intentarlo."
+    ),
+    "busy": (
+        "Otra solicitud podría estar procesando tu envío. Comprueba el "
+        "historial y espera cinco minutos antes de volver a intentarlo."
+    ),
+    "failed": "No se pudo completar el envío. No se ha programado un reintento.",
+    "uncertain": (
+        "No se pudo confirmar el resultado del envío. No se realizará un "
+        "reintento automático; comprueba tu correo antes de volver a solicitarlo."
+    ),
+    NewsletterSendAttempt.Status.SIMULATED: (
+        "Simulación completada por el backend de consola; no se envió un "
+        "correo real."
+    ),
+    NewsletterSendAttempt.Status.ACCEPTED: (
+        "El backend aceptó el boletín. Esto no garantiza su llegada a Recibidos."
+    ),
+}
 
 
 @dataclass(frozen=True)
 class NewsletterArticle:
-    """Campos aptos para mostrar en HTML sin confiar en contenido de feeds."""
+    """Validated news fields for API responses and personalized email."""
 
     title: str
     source: str
@@ -60,13 +91,102 @@ class NewsletterPreview:
 
 @dataclass(frozen=True)
 class NewsPage:
-    """Shared filtered news data for HTML and JSON responses."""
+    """Filtered news data returned by the Angular API."""
 
     preview: NewsletterPreview
     articles: tuple[NewsletterArticle, ...]
     topic_filters: tuple[dict[str, str], ...]
     active_topic: str
     selected_topic_label: str
+
+
+def request_manual_newsletter(user: User) -> tuple[str, NewsletterSendAttempt | None]:
+    """Reserve and synchronously send a personalized newsletter to its owner."""
+    if user.email_verified_at is None:
+        return "email_unverified", None
+
+    preview = get_user_newsletter_preview(user)
+    if not preview.has_selected_topics:
+        return "no_topics", None
+    if not preview.articles:
+        return "no_news", None
+
+    now = timezone.now()
+    try:
+        with transaction.atomic():
+            reserved = (
+                User.objects.filter(
+                    pk=user.pk,
+                    email=user.email,
+                    email_verified_at__isnull=False,
+                )
+                .exclude(email="")
+                .filter(
+                    Q(manual_newsletter_last_attempt_at__isnull=True)
+                    | Q(
+                        manual_newsletter_last_attempt_at__lte=(
+                            now - NEWSLETTER_SEND_INTERVAL
+                        )
+                    )
+                )
+                .update(manual_newsletter_last_attempt_at=now)
+            )
+            if not reserved:
+                return "throttled", None
+
+            attempt = NewsletterSendAttempt.objects.create(
+                user=user,
+                recipient=user.email,
+            )
+    except OperationalError as error:
+        if "locked" not in str(error).lower():
+            raise
+        return "busy", None
+
+    topic_labels = dict(TOPIC_CHOICES)
+    selected_topics = ", ".join(
+        topic_labels.get(topic, topic) for topic in preview.selected_topics
+    )
+    lines = [
+        f"Tu boletín personal ({preview.generated_at:%d/%m/%Y %H:%M} "
+        f"{preview.timezone_name})",
+        f"Temas: {selected_topics}",
+        "",
+    ]
+    for article in preview.articles:
+        lines.extend(
+            [
+                article.title,
+                article.source,
+                f"Publicado: {article.published}" if article.published else "",
+                article.link,
+                "",
+            ]
+        )
+
+    try:
+        sent_count = send_mail(
+            subject="Tu boletín personal",
+            message="\n".join(lines),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[attempt.recipient],
+            fail_silently=False,
+        )
+    except (OSError, smtplib.SMTPException, ValueError):
+        status = NewsletterSendAttempt.Status.UNCERTAIN
+    else:
+        if sent_count != 1:
+            status = NewsletterSendAttempt.Status.FAILED
+        elif settings.EMAIL_BACKEND == (
+            "django.core.mail.backends.console.EmailBackend"
+        ):
+            status = NewsletterSendAttempt.Status.SIMULATED
+        else:
+            status = NewsletterSendAttempt.Status.ACCEPTED
+
+    attempt.status = status
+    attempt.save(update_fields={"status"})
+    return status, attempt
 
 
 def _is_http_url(value: str) -> bool:

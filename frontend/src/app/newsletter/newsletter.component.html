@@ -1,4 +1,4 @@
-<section class="newsletter-page preferences-page" aria-labelledby="page-title">
+<section class="newsletter-page" aria-labelledby="page-title">
   <div class="page-heading">
     <p class="eyebrow">Tu resumen personal</p>
     <h1 id="page-title">Tu boletín</h1>
@@ -18,18 +18,6 @@
       }
     </p>
   } @else if (preview(); as newsletter) {
-    @if (!newsletter.newsletter_enabled) {
-      <div class="notice notice--info" role="status">
-        El envío automático está desactivado. Aun así, puedes solicitar un
-        boletín manual; esto no activa el envío automático.
-      </div>
-    }
-
-    <p class="preview-datetime">
-      Consulta del {{ formatDate(newsletter.generated_at, newsletter.timezone_name) }}
-      ({{ newsletter.timezone_name }})
-    </p>
-
     @if (newsletter.warnings.length > 0) {
       <div class="feed-warnings" aria-label="Avisos de fuentes">
         @for (warning of newsletter.warnings; track warning) {
@@ -38,111 +26,155 @@
       </div>
     }
 
-    @if (!newsletter.has_selected_topics) {
-      <section class="card empty-state" aria-labelledby="empty-heading">
-        <h2 id="empty-heading">Aún no has elegido temas</h2>
-        <p>Selecciona uno o varios temas para consultar sus noticias.</p>
-        <a class="button button--primary" routerLink="/preferencias">
-          Editar preferencias
-        </a>
-      </section>
-    } @else if (newsletter.articles.length > 0) {
-      <section class="newsletter-articles" aria-labelledby="articles-heading">
-        <div class="news-list-heading">
+    <div class="newsletter-layout">
+      <aside class="send-panel card" aria-labelledby="send-panel-heading">
+        <div class="section-heading">
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 5h16v14H4zM4 7l8 6 8-6" />
+            </svg>
+          </span>
           <div>
-            <h2 id="articles-heading">Noticias de tus temas</h2>
-            <p>{{ newsletter.articles.length }} noticias seleccionadas</p>
+            <h2 id="send-panel-heading">Envío del boletín</h2>
+            <p>Solo se enviará a tu correo verificado.</p>
           </div>
         </div>
-        <ol class="news-list">
-          @for (article of newsletter.articles; track article.link) {
-            <li
-              class="card news-card"
-              [class.news-card--with-image]="!!article.image_url"
-            >
-              @if (article.image_url) {
-                <img
-                  class="news-image"
-                  [src]="article.image_url"
-                  alt=""
-                  loading="lazy"
-                  decoding="async"
-                  referrerpolicy="no-referrer"
-                />
-              }
-              <div class="news-card-content">
-                @if (article.topic) {
-                  <span class="topic-tag">{{ article.topic }}</span>
-                }
-                <h3>
-                  <a
-                    [href]="article.link"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    referrerpolicy="no-referrer"
-                  >
-                    {{ article.title }}
-                  </a>
-                </h3>
-                <p class="news-meta">
-                  <span>{{ article.source }}</span>
-                  @if (article.published) {
-                    <span aria-hidden="true">·</span>
-                    <time>{{ article.published }}</time>
-                  }
-                </p>
-                @if (article.summary) {
-                  <p class="news-summary">{{ article.summary }}</p>
-                }
+
+        @if (!newsletter.newsletter_enabled) {
+          <div class="notice notice--info" role="status">
+            El envío automático está desactivado. Puedes solicitar un envío
+            manual; esto no activa el envío automático.
+          </div>
+        }
+
+        @if (!newsletter.email_verified) {
+          <div class="notice notice--info" role="status">
+            Verifica tu correo para poder recibir el boletín.
+            <a routerLink="/verificar-email">Abrir verificación de correo</a>
+          </div>
+        }
+
+        <p class="send-recipient">
+          <strong>Destinatario</strong>
+          El correo verificado asociado a tu cuenta.
+        </p>
+        <p class="preview-datetime">
+          Consulta del
+          {{ formatDate(newsletter.generated_at, newsletter.timezone_name) }}
+          ({{ newsletter.timezone_name }})
+        </p>
+
+        @if (sendMessage(); as message) {
+          <p class="notice notice--success" role="status">{{ message }}</p>
+        }
+        @if (sendError(); as message) {
+          <p class="notice notice--error" role="alert">
+            {{ message }}
+            @if (verificationRequired()) {
+              <a routerLink="/verificar-email">Verificar correo</a>
+            }
+            @if (loginRequired()) {
+              <a routerLink="/login">Iniciar sesión</a>
+            }
+          </p>
+        }
+
+        @if (newsletter.email_verified && newsletter.has_selected_topics && newsletter.articles.length > 0) {
+          <form class="send-newsletter-form" (submit)="$event.preventDefault(); requestSend()">
+            <button class="button button--primary button--full" type="submit" [disabled]="sending()">
+              {{ sending() ? 'Procesando solicitud…' : 'Enviarme mi boletín' }}
+            </button>
+          </form>
+        }
+
+        <a class="text-link history-link" routerLink="/historial">
+          Consultar historial de envíos
+        </a>
+      </aside>
+
+      <article class="email-sheet" aria-labelledby="preview-heading">
+        <header class="email-sheet-header">
+          <span class="email-sheet-mark" aria-hidden="true">A</span>
+          <div>
+            <p class="eyebrow">Vista previa</p>
+            <h2 id="preview-heading">Tu resumen de noticias</h2>
+            <p>{{ newsletter.timezone_name }}</p>
+          </div>
+        </header>
+
+        @if (!newsletter.has_selected_topics) {
+          <section class="empty-state" aria-labelledby="empty-heading">
+            <h3 id="empty-heading">Aún no has elegido temas</h3>
+            <p>Selecciona uno o varios temas para consultar sus noticias.</p>
+            <a class="button button--primary" routerLink="/preferencias">
+              Editar preferencias
+            </a>
+          </section>
+        } @else if (newsletter.articles.length > 0) {
+          <section class="newsletter-articles" aria-labelledby="articles-heading">
+            <div class="news-list-heading">
+              <div>
+                <h3 id="articles-heading">Noticias de tus temas</h3>
+                <p>{{ newsletter.articles.length }} noticias seleccionadas</p>
               </div>
-            </li>
-          }
-        </ol>
-      </section>
-    } @else {
-      <section class="card empty-state" aria-labelledby="empty-heading">
-        <h2 id="empty-heading">No hay noticias disponibles</h2>
-        @if (newsletter.matched_source_count > 0) {
-          <p>No se encontraron noticias en las fuentes de tus temas seleccionados.</p>
+            </div>
+            <ol class="news-list">
+              @for (article of newsletter.articles; track article.link) {
+                <li
+                  class="card news-card"
+                  [class.news-card--with-image]="!!article.image_url"
+                >
+                  @if (article.image_url) {
+                    <img
+                      class="news-image"
+                      [src]="article.image_url"
+                      alt=""
+                      loading="lazy"
+                      decoding="async"
+                      referrerpolicy="no-referrer"
+                    />
+                  }
+                  <div class="news-card-content">
+                    @if (article.topic) {
+                      <span class="topic-tag">{{ article.topic }}</span>
+                    }
+                    <h4>
+                      <a
+                        [href]="article.link"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        referrerpolicy="no-referrer"
+                      >
+                        {{ article.title }}
+                      </a>
+                    </h4>
+                    <p class="news-meta">
+                      <span>{{ article.source }}</span>
+                      @if (article.published) {
+                        <span aria-hidden="true">·</span>
+                        <time>{{ article.published }}</time>
+                      }
+                    </p>
+                    @if (article.summary) {
+                      <p class="news-summary">{{ article.summary }}</p>
+                    }
+                  </div>
+                </li>
+              }
+            </ol>
+          </section>
         } @else {
-          <p>Aún no hay fuentes configuradas para los temas que seleccionaste.</p>
+          <section class="empty-state" aria-labelledby="empty-heading">
+            <h3 id="empty-heading">No hay noticias disponibles</h3>
+            @if (newsletter.matched_source_count > 0) {
+              <p>No se encontraron noticias en las fuentes de tus temas seleccionados.</p>
+            } @else {
+              <p>Aún no hay fuentes configuradas para los temas que seleccionaste.</p>
+            }
+            <p><a class="text-link" routerLink="/preferencias">Editar preferencias</a></p>
+          </section>
         }
-        <p><a class="text-link" routerLink="/preferencias">Editar preferencias</a></p>
-      </section>
-    }
-
-    @if (!newsletter.email_verified) {
-      <div class="notice notice--info" role="status">
-        Verifica tu correo para poder recibir el boletín.
-        <a routerLink="/verificar-email">Abrir verificación de correo</a>
-      </div>
-    }
-
-    @if (sendMessage(); as message) {
-      <p class="notice notice--success" role="status">{{ message }}</p>
-    }
-    @if (sendError(); as message) {
-      <p class="notice notice--error" role="alert">
-        {{ message }}
-        @if (verificationRequired()) {
-          <a routerLink="/verificar-email">Verificar correo</a>
-        }
-        @if (loginRequired()) {
-          <a routerLink="/login">Iniciar sesión</a>
-        }
-      </p>
-    }
-
-    @if (newsletter.email_verified && newsletter.has_selected_topics && newsletter.articles.length > 0) {
-      <form class="send-newsletter-form" (submit)="$event.preventDefault(); requestSend()">
-        <button class="button button--primary" type="submit" [disabled]="sending()">
-          {{ sending() ? 'Procesando solicitud…' : 'Enviarme mi boletín' }}
-        </button>
-      </form>
-    }
+      </article>
+    </div>
   }
-
-  <p class="text-link">
-    <a routerLink="/historial">Consultar historial de envíos</a>
-  </p>
 </section>

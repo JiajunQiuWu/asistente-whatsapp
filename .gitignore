@@ -10,11 +10,11 @@ data/*.db-journal
 data/*.db-shm
 data/*.db-wal
 
-web/db.sqlite3
-web/db.sqlite3-*
-web/.env*
-web/local_settings.py
-web/secret_key.txt
+backend/db.sqlite3
+backend/db.sqlite3-*
+backend/.env*
+backend/local_settings.py
+backend/secret_key.txt
 .coverage
 htmlcov/
 

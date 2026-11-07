@@ -181,6 +181,41 @@ class AngularAccountApiTests(TestCase):
         self.assertEqual(repeated.status_code, 200)
         self.assertEqual(repeated.json()["state"], "already_verified")
 
+    def test_verification_token_cannot_be_reassigned_to_another_account(self):
+        signed_user = User.objects.create_user(
+            username="signed-token-owner",
+            email="signed-token-owner@example.test",
+            password=PASSWORD,
+        )
+        other_user = User.objects.create_user(
+            username="other-token-user",
+            email="other-token-user@example.test",
+            password=PASSWORD,
+        )
+        send_verification_email(
+            signed_user,
+            frontend_base_url="https://frontend.example.test",
+        )
+        token = parse_qs(urlsplit(mail.outbox[0].body.splitlines()[2]).query)[
+            "token"
+        ][0]
+
+        response = self.post_json(
+            "api_confirm_email",
+            {
+                "token": token,
+                "user_id": other_user.pk,
+                "email": other_user.email,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()["state"], "verified")
+        signed_user.refresh_from_db()
+        other_user.refresh_from_db()
+        self.assertIsNotNone(signed_user.email_verified_at)
+        self.assertIsNone(other_user.email_verified_at)
+
     def test_invalid_or_expired_verification_token_is_rejected(self):
         invalid = self.client.get(
             reverse("api_verify_email"),

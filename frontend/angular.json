@@ -26,7 +26,6 @@
               }
             ],
             "styles": [
-              "../web/accounts/static/accounts/css/site.css",
               "src/styles.css"
             ]
           },
@@ -40,7 +39,7 @@
                 },
                 {
                   "type": "anyComponentStyle",
-                  "maximumWarning": "4kB",
+                  "maximumWarning": "5kB",
                   "maximumError": "8kB"
                 }
               ],

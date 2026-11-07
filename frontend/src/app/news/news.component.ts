@@ -8,6 +8,7 @@ import { NewsService } from '../news.service';
 @Component({
   imports: [RouterLink],
   selector: 'app-news',
+  styleUrl: './news.component.css',
   templateUrl: './news.component.html',
 })
 export class NewsComponent implements OnInit {

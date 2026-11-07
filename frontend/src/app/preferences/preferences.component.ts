@@ -20,6 +20,7 @@ type TopicField = 'newsletter_topics' | 'alert_topics';
 @Component({
   imports: [DatePipe, ReactiveFormsModule, RouterLink],
   selector: 'app-preferences',
+  styleUrl: './preferences.component.css',
   templateUrl: './preferences.component.html',
 })
 export class PreferencesComponent implements OnInit {

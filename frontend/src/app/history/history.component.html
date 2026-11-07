@@ -1,15 +1,19 @@
-<section class="newsletter-page preferences-page" aria-labelledby="page-title">
+<section class="history-page" aria-labelledby="page-title">
   <div class="page-heading">
     <p class="eyebrow">Tu resumen personal</p>
     <h1 id="page-title">Historial del boletín</h1>
     <p>Los diez intentos manuales más recientes de esta cuenta.</p>
   </div>
 
-  <p><a class="text-link" routerLink="/boletin">Volver a la vista previa</a></p>
+  <p class="history-return"><a class="text-link" routerLink="/boletin">Volver a la vista previa</a></p>
 
   <section class="card history-card" aria-labelledby="attempts-heading">
     <div class="section-heading">
-      <span class="section-number" aria-hidden="true">↗</span>
+      <span class="section-icon" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none">
+          <path d="M5 19V5M5 19h15M8 15l3-4 3 2 5-6" />
+        </svg>
+      </span>
       <div>
         <h2 id="attempts-heading">Tus últimos intentos</h2>
         <p>La hora se muestra en la zona horaria de tus preferencias.</p>
@@ -39,13 +43,13 @@
             <tbody>
               @for (attempt of result.attempts; track attempt.id) {
                 <tr>
-                  <td>
+                  <td data-label="Fecha">
                     <time [attr.datetime]="attempt.created_at">
                       {{ formatDate(attempt.created_at, result.timezone_name) }}
                     </time>
                   </td>
-                  <td>{{ attempt.recipient }}</td>
-                  <td>
+                  <td data-label="Destinatario">{{ attempt.recipient }}</td>
+                  <td data-label="Estado">
                     <span
                       class="attempt-status"
                       [class.attempt-status--accepted]="attempt.status === 'accepted'"

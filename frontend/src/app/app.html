@@ -8,7 +8,14 @@
         <span>Asistente personal</span>
       </a>
       <details class="sidebar-menu" open>
-        <summary class="mobile-menu-toggle">Menú</summary>
+        <summary class="mobile-menu-toggle">
+          <span class="menu-toggle-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <path d="M4 7h16M4 12h16M4 17h16" />
+            </svg>
+          </span>
+          Menú
+        </summary>
         <div class="sidebar-menu-content">
           <nav class="site-nav" aria-label="Navegación principal">
             <a
@@ -17,15 +24,10 @@
               routerLinkActive="is-active"
               ariaCurrentWhenActive="page"
             >
-              <span aria-hidden="true">◈</span> Noticias
-            </a>
-            <a
-              class="nav-link"
-              routerLink="/preferencias"
-              routerLinkActive="is-active"
-              ariaCurrentWhenActive="page"
-            >
-              <span aria-hidden="true">⚙</span> Preferencias
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                <path d="M4 5.5h16v13H4zM8 9h8M8 12.5h8M8 16h5" />
+              </svg>
+              Noticias
             </a>
             <a
               class="nav-link"
@@ -33,7 +35,10 @@
               routerLinkActive="is-active"
               ariaCurrentWhenActive="page"
             >
-              <span aria-hidden="true">▤</span> Boletín
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                <path d="M5 4.5h14v15H5zM8 8h8M8 11.5h6M8 15h8" />
+              </svg>
+              Boletín
             </a>
             <a
               class="nav-link"
@@ -41,7 +46,22 @@
               routerLinkActive="is-active"
               ariaCurrentWhenActive="page"
             >
-              <span aria-hidden="true">↗</span> Historial
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                <path d="M5 19V5M5 19h15M8 15l3-4 3 2 5-6" />
+              </svg>
+              Historial
+            </a>
+            <a
+              class="nav-link"
+              routerLink="/preferencias"
+              routerLinkActive="is-active"
+              ariaCurrentWhenActive="page"
+            >
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                <path d="M12 3.8 13.4 5l2-.1.9 1.8 1.8.9-.1 2 1.2 1.4-1.2 1.5.1 2-1.8.8-.9 1.9-2-.1-1.4 1.2-1.5-1.2-2 .1-.8-1.9-1.9-.8.1-2L4.7 12l1.2-1.4-.1-2 1.9-.9.8-1.8 2 .1z" />
+                <circle cx="12" cy="12" r="2.7" />
+              </svg>
+              Preferencias
             </a>
           </nav>
           <div class="sidebar-account">
@@ -60,7 +80,9 @@
               [disabled]="logoutPending()"
               (click)="logout()"
             >
-              <span aria-hidden="true">↪</span>
+              <svg aria-hidden="true" viewBox="0 0 24 24" fill="none">
+                <path d="M10 5H5v14h5M14 8l4 4-4 4M8 12h10" />
+              </svg>
               {{ logoutPending() ? 'Cerrando sesión…' : 'Cerrar sesión' }}
             </button>
           </div>

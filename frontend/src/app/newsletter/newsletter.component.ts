@@ -10,6 +10,7 @@ import { AccountService } from '../account.service';
 @Component({
   imports: [RouterLink],
   selector: 'app-newsletter',
+  styleUrl: './newsletter.component.css',
   templateUrl: './newsletter.component.html',
 })
 export class NewsletterComponent implements OnInit {

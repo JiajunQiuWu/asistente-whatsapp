@@ -23,7 +23,12 @@
     @if (data(); as account) {
       <section class="card preference-section" aria-labelledby="email-heading">
         <div class="section-heading">
-          <span class="section-number" aria-hidden="true">04</span>
+          <span class="section-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+              <rect x="4" y="6" width="16" height="12" rx="2" />
+              <path d="m5 8 7 5 7-5" />
+            </svg>
+          </span>
           <div>
             <h2 id="email-heading">Correo electrónico</h2>
             @if (account.email_verified_at) {
@@ -53,7 +58,11 @@
       <form class="preferences-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
         <section class="card preference-section" aria-labelledby="newsletter-heading">
           <div class="section-heading">
-            <span class="section-number" aria-hidden="true">01</span>
+            <span class="section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M5 4.5h14v15H5zM8 8h8M8 11.5h8M8 15h5" />
+              </svg>
+            </span>
             <div>
               <h2 id="newsletter-heading">Boletín</h2>
               <p>Configura cuándo y en qué zona horaria prefieres recibirlo.</p>
@@ -97,7 +106,15 @@
 
         <section class="card preference-section" aria-labelledby="topics-heading">
           <div class="section-heading">
-            <span class="section-number" aria-hidden="true">02</span>
+            <span class="section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <circle cx="7" cy="7" r="2" />
+                <circle cx="17" cy="7" r="2" />
+                <circle cx="7" cy="17" r="2" />
+                <circle cx="17" cy="17" r="2" />
+                <path d="M9 7h6M7 9v6M17 9v6M9 17h6" />
+              </svg>
+            </span>
             <div>
               <h2 id="topics-heading">Temas</h2>
               <p>Elige los temas que te interesan para el boletín.</p>
@@ -125,7 +142,11 @@
 
         <section class="card preference-section" aria-labelledby="alerts-heading">
           <div class="section-heading">
-            <span class="section-number" aria-hidden="true">03</span>
+            <span class="section-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M18 9a6 6 0 0 0-12 0c0 7-2 7-2 9h16c0-2-2-2-2-9M10 21h4" />
+              </svg>
+            </span>
             <div>
               <h2 id="alerts-heading">Alertas</h2>
               <p>Las alertas tienen su propia selección de temas y un límite diario.</p>

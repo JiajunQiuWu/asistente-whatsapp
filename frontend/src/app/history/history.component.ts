@@ -7,6 +7,7 @@ import { AccountService } from '../account.service';
 @Component({
   imports: [RouterLink],
   selector: 'app-history',
+  styleUrl: './history.component.css',
   templateUrl: './history.component.html',
 })
 export class HistoryComponent implements OnInit {

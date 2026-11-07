@@ -172,14 +172,15 @@ Desde la carpeta del proyecto, ejecuta las pruebas con el entorno activado:
 
 ```powershell
 python -m unittest discover -s tests -v
-python web\manage.py test accounts
+python backend\manage.py check
+python backend\manage.py test accounts
 ```
 
 ## Aplicación web local
 
-El sitio web está separado de la CLI: `web\manage.py` es su punto de entrada,
-`web\config` contiene la configuración y rutas del proyecto, y `web\accounts`
-implementa autenticación, preferencias y boletines. Usa `web\db.sqlite3`,
+El backend Django está separado de la CLI: `backend\manage.py` es su punto de
+entrada, `backend\config` contiene la configuración y rutas del proyecto, y
+`backend\accounts` implementa autenticación, preferencias y boletines. Usa `backend\db.sqlite3`,
 independiente de `data\tasks.db`; no migra ni consulta las tareas de terminal.
 
 La dependencia del entorno es Django 6.1.2, comprobada con Python 3.14. Para
@@ -199,7 +200,7 @@ migración posterior añade estados para simulaciones y resultados inciertos.
 Resuelve cualquier conflicto de correo manualmente y aplica las migraciones:
 
 ```powershell
-.\.venv\Scripts\python.exe web\manage.py migrate
+.\.venv\Scripts\python.exe backend\manage.py migrate
 ```
 
 Las cuentas previas conservan sus credenciales y quedan sin verificar. Los
@@ -210,7 +211,7 @@ base `data\tasks.db` no se modifican.
 Crea un usuario administrador para `/admin/`:
 
 ```powershell
-.\.venv\Scripts\python.exe web\manage.py createsuperuser
+.\.venv\Scripts\python.exe backend\manage.py createsuperuser
 ```
 
 Opcionalmente, antes de arrancar, genera y asigna una clave de desarrollo en
@@ -244,7 +245,7 @@ $env:EMAIL_TIMEOUT = "10"
 $env:EMAIL_HOST_USER = $env:GMAIL_ADDRESS
 $env:DEFAULT_FROM_EMAIL = $env:GMAIL_ADDRESS
 $env:EMAIL_VERIFICATION_BASE_URL = "http://localhost:8000"
-.\.venv\Scripts\python.exe web\manage.py runserver localhost:8000
+.\.venv\Scripts\python.exe backend\manage.py runserver localhost:8000
 ```
 
 El backend web reutiliza la recuperación segura de keyring de la CLI y nunca
@@ -257,52 +258,23 @@ El origen de los enlaces se toma únicamente de
 `EMAIL_VERIFICATION_BASE_URL`, no de la cabecera `Host`; usa una URL bajo tu
 control. En local el valor predeterminado es `http://localhost:8000`. Los
 registros y reenvíos desde Angular usan `ANGULAR_FRONTEND_BASE_URL` para
-construir el enlace de la SPA; los formularios Django conservados usan la ruta
-HTML original.
+construir el enlace de la SPA. Django ya no renderiza pantallas de usuario:
+ofrece la API, Admin y redirecciones temporales de compatibilidad.
 
 Arranca el servidor **solo en la interfaz local**, desde la raíz:
 
 ```powershell
-.\.venv\Scripts\python.exe web\manage.py runserver localhost:8000
+.\.venv\Scripts\python.exe backend\manage.py runserver localhost:8000
 ```
 
-Abre `http://localhost:8000/`. Al registrarte, indica un correo válido y se
-enviará un enlace de verificación con caducidad de 24 horas. El enlace primero
-muestra una confirmación; solo el formulario POST protegido por CSRF verifica
-la dirección, por lo que una previsualización o un escáner que abra el enlace
-no la activa. La página privada muestra el estado del correo y permite
-reenviarlo mediante POST, con un mínimo de cinco minutos entre envíos. El
-registro y el inicio de sesión no dependen de que el correo ya esté verificado.
-Al guardar preferencias también se muestra una confirmación. Los errores de
-validación aparecen junto al campo correspondiente; las contraseñas no se
-vuelven a rellenar si el registro falla.
 Administra usuarios y preferencias en `http://localhost:8000/admin/`.
 
-La interfaz comparte una plantilla base y estilos locales en
-`web\accounts\templates\accounts` y `web\accounts\static\accounts\css\site.css`.
-Después del inicio de sesión se abre Noticias; los destinos internos de `next`
-se conservan y Django rechaza destinos externos. La navegación autenticada usa
-un menú lateral que se puede desplegar en móvil. Noticias muestra los temas
-elegidos, las fuentes y los datos de resumen e imagen que ofrezca cada feed; no
-se inventan los datos ausentes. El panel del boletín distingue entre correo
-verificado y pendiente y aclara que el envío automático todavía no está
-programado. Las preferencias conservan correo, boletín, temas y alertas. El
-sitio se identifica como versión local en desarrollo y no envía alertas.
-
-Con la sesión iniciada, abre `http://localhost:8000/noticias/` para consultar
-noticias de los temas elegidos, o `http://localhost:8000/boletin/` para la vista
-previa, el envío manual y el historial. Ambas vistas usan los temas del boletín,
-no los de alertas, y muestran fecha y hora según tu zona horaria.
-Aunque el envío automático esté desactivado, puedes solicitar manualmente el
-boletín si hay noticias y tu correo está verificado; esto no activa envíos
-automáticos. El formulario envía solo mediante POST protegido por CSRF, toma el
-destinatario y la cuenta de la sesión verificada, y limita cada cuenta a un
-intento cada cinco minutos, también ante solicitudes simultáneas. La vista
-muestra solo tus diez intentos más recientes y su resultado: en proceso,
-aceptado por el servidor de correo, fallido, incierto o simulación completada
-cuando se usa el backend de consola. Un resultado aceptado no garantiza la
-llegada a Recibidos; un resultado incierto no se reintenta automáticamente.
-No se consultan tareas de la CLI.
+La interfaz de usuario está en Angular (`frontend\`), mientras Django conserva
+las sesiones, CSRF, validación de API, lógica de noticias y boletines, correo y
+Admin. El envío manual requiere correo verificado, usa la dirección de la
+sesión, limita cada cuenta a un intento cada cinco minutos y conserva los
+estados de aceptado, simulación, fallo e incertidumbre. No activa el envío
+automático ni consulta tareas de la CLI.
 
 La configuración de fuentes se lee desde `data/feeds.json`, con una ruta
 absoluta derivada del código, no del directorio actual. Los códigos `technology`,
@@ -321,17 +293,13 @@ CLI para conservar la cobertura existente:
 
 ```powershell
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe web\manage.py test accounts
+.\.venv\Scripts\python.exe backend\manage.py check
+.\.venv\Scripts\python.exe backend\manage.py test accounts
 ```
 
-Para comprobar las plantillas HTML conservadas durante la migración, deja
-configurado el backend de consola (el predeterminado), registra una cuenta,
-copia el enlace de verificación que aparece en la terminal y confirma mediante
-el formulario. Después, elige temas con fuentes disponibles y solicita
-«Enviarme mi boletín» desde la vista previa Django. El correo se simula en la
-consola; no configures SMTP ni uses una cuenta real durante las pruebas. Para
-la navegación habitual en Angular y sus rutas del boletín, sigue los pasos de
-la sección siguiente.
+Las pruebas Django usan feeds y correo simulados; no envían mensajes reales.
+Para comprobar la interfaz, inicia Angular y usa la API local según los pasos
+de la sección siguiente.
 
 La base de datos web, archivos `.env*` y configuración local se excluyen de
 Git. `DEBUG` está habilitado y la clave de respaldo de settings es solo para
@@ -339,20 +307,20 @@ desarrollo: no expongas este servidor ni uses esta configuración en producción
 No hay recuperación de contraseña, cambio de correo desde la web, programación
 diaria, alertas reales ni integración con WhatsApp.
 
-## Migración progresiva a Angular
+## Interfaz Angular y API Django
 
-La migración añade una aplicación Angular standalone en `frontend\`. El
+La aplicación Angular standalone de `frontend\` es la interfaz de usuario. El
 lockfile resuelve Angular 22.2.4, Angular CLI 22.2.6 y TypeScript 6.0.3; se
 comprobó con Node 24.21.0 y npm 11.19.0. El frontend usa TypeScript estricto;
-el backend conserva Django, SQLite, modelos y lógica de
-autenticación/noticias. No hace falta configurar variables de entorno nuevas
-para el desarrollo local ni cambiar el backend de correo.
+Django ofrece la API, Admin, SQLite, sesiones y la lógica de
+autenticación/noticias. No hace falta configurar variables nuevas para el
+desarrollo local ni cambiar el backend de correo.
 
 Para desarrollo, inicia Django en una terminal desde la raíz del repositorio:
 
 ```powershell
-.\.venv\Scripts\python.exe web\manage.py migrate
-.\.venv\Scripts\python.exe web\manage.py runserver localhost:8000
+.\.venv\Scripts\python.exe backend\manage.py migrate
+.\.venv\Scripts\python.exe backend\manage.py runserver localhost:8000
 ```
 
 En otra terminal, instala las dependencias del frontend una vez e inicia Angular:
@@ -381,8 +349,10 @@ La API ofrece `GET /api/csrf/`, `GET /api/session/`, `POST /api/login/`,
 `POST /api/newsletter/send/` y `GET /api/newsletter/history/`. Django valida
 los formularios, mantiene la sesión, protege las escrituras con CSRF y limita
 las preferencias, vista previa e historial al usuario autenticado.
-La salida Angular está en `frontend\src\`; los estilos actuales se cargan
-directamente desde `web\accounts\static\accounts\css\site.css`.
+La salida Angular está en `frontend\src\`; sus estilos propios viven en
+`frontend\src\styles.css` y junto a cada componente. Django conserva sus
+plantillas y recursos estáticos necesarios para Admin, pero no una interfaz
+HTML de usuario.
 
 Angular contiene las pantallas de login, registro, verificación de correo,
 preferencias, Noticias con filtro por tema, vista previa del boletín y su
@@ -394,9 +364,11 @@ generan enlaces firmados a `ANGULAR_FRONTEND_BASE_URL/verificar-email`; el token
 sigue teniendo caducidad de 24 horas, solo se consume al confirmar con POST y
 continúa ligado al usuario y correo actuales. En desarrollo
 `ANGULAR_FRONTEND_BASE_URL` toma por defecto `http://localhost:4200`; en
-producción el valor predeterminado es `EMAIL_VERIFICATION_BASE_URL`. Si la SPA
-pública tiene otro origen, configura `ANGULAR_FRONTEND_BASE_URL` antes de
-iniciar Django, por ejemplo:
+producción configura explícitamente `ANGULAR_FRONTEND_BASE_URL` con el origen
+público real de Angular. Si no se define, el valor de respaldo configurado es
+`EMAIL_VERIFICATION_BASE_URL`, que no necesariamente sirve la SPA. La misma
+configuración controla enlaces de verificación nuevos y redirecciones de las
+antiguas rutas de pantalla. Por ejemplo:
 
 ```powershell
 $env:ANGULAR_FRONTEND_BASE_URL = "https://app.ejemplo.com"
@@ -406,9 +378,12 @@ No es necesario cambiar `EMAIL_VERIFICATION_BASE_URL`, el backend de correo ni
 otras variables existentes. Si la SPA se sirve bajo una ruta base, ajusta
 también el `base href` de Angular. Para producción, publica el frontend y
 enruta `/api/` al mismo origen para conservar las cookies de sesión y CSRF sin
-CORS. Las plantillas y URLs Django originales, incluidas `/boletin/` y
-`/boletin/enviar/`, permanecen disponibles para comparar la migración; la
-navegación habitual de Angular usa `/boletin` y `/historial`.
+CORS. Las antiguas rutas GET de pantallas (`/`, `/noticias/`, `/registro/`,
+`/login/`, `/preferencias/`, `/boletin/` y `/verificar-email/`) redirigen
+temporalmente a sus rutas Angular; el token de los enlaces antiguos se
+transporta sin validarlo ni consumirlo. Los antiguos POST de registro, login,
+preferencias y verificación se rechazan; logout, envío manual y reenvío antiguos
+responden `410 Gone` sin efectos. La API y `/admin/` no se redirigen.
 
 Prueba el flujo migrado en `http://localhost:4200/registro`: crea una cuenta;
 con el backend de consola, copia de la consola Django el enlace que termina en
@@ -428,7 +403,8 @@ desde `/preferencias` puedes reenviar el enlace.
 Para comprobar la implementación:
 
 ```powershell
-.\.venv\Scripts\python.exe web\manage.py test accounts
+.\.venv\Scripts\python.exe backend\manage.py check
+.\.venv\Scripts\python.exe backend\manage.py test accounts
 Set-Location frontend
 npm run build
 npm test

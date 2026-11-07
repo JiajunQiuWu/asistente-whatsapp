@@ -1,0 +1,136 @@
+.history-page {
+  width: min(100%, 1100px);
+  margin: 0 auto;
+}
+
+.history-return {
+  margin: 0 0 var(--space-4);
+}
+
+.history-card {
+  padding: clamp(1rem, 3vw, 1.75rem);
+}
+
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-line);
+  border-radius: var(--radius-md);
+}
+
+.attempt-table {
+  width: 100%;
+  border-collapse: collapse;
+  text-align: left;
+}
+
+.attempt-table th,
+.attempt-table td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-line);
+  vertical-align: top;
+}
+
+.attempt-table th {
+  background: var(--color-surface-soft);
+  color: var(--color-muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+.attempt-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.attempt-table td {
+  font-size: 0.91rem;
+  overflow-wrap: anywhere;
+}
+
+.attempt-status {
+  display: inline-flex;
+  max-width: 100%;
+  padding: 0.2rem var(--space-2);
+  border-radius: var(--radius-pill);
+  background: #eef1f5;
+  color: #34445a;
+  font-size: 0.81rem;
+  font-weight: 700;
+}
+
+.attempt-status--accepted {
+  background: #e9f5ed;
+  color: #145a32;
+}
+
+.attempt-status--simulated {
+  background: #e8f4f4;
+  color: #075d62;
+}
+
+.attempt-status--failed {
+  background: #fff0ef;
+  color: #801d1d;
+}
+
+.empty-history {
+  margin: 0;
+  padding: var(--space-5);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-soft);
+  color: var(--color-muted);
+  text-align: center;
+}
+
+@media (max-width: 600px) {
+  .table-scroll {
+    overflow: visible;
+    border: 0;
+  }
+
+  .attempt-table,
+  .attempt-table tbody {
+    display: block;
+    width: 100%;
+  }
+
+  .attempt-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    clip-path: inset(50%);
+  }
+
+  .attempt-table tbody {
+    display: grid;
+    gap: var(--space-3);
+  }
+
+  .attempt-table tr {
+    display: grid;
+    gap: var(--space-2);
+    padding: var(--space-3);
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+  }
+
+  .attempt-table td {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 0.65fr) minmax(0, 1fr);
+    gap: var(--space-2);
+    padding: 0;
+    border: 0;
+  }
+
+  .attempt-table td::before {
+    content: attr(data-label);
+    color: var(--color-muted);
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+}

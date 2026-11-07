@@ -18,14 +18,12 @@ from .email_verification import send_verification_email, verify_email_token
 from .forms import PreferencesForm, RegistrationForm
 from .models import NewsletterSendAttempt, Preferences, TOPIC_CHOICES
 from .newsletter_service import (
+    MANUAL_NEWSLETTER_MESSAGES,
     get_user_news_page,
     get_user_newsletter_preview,
-)
-from .registration import save_registered_user
-from .views import (
-    MANUAL_NEWSLETTER_MESSAGES,
     request_manual_newsletter,
 )
+from .registration import save_registered_user
 
 
 @require_GET

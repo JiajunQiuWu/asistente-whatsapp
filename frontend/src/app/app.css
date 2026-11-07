@@ -1,0 +1,253 @@
+:host {
+  display: block;
+  min-height: 100vh;
+}
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  width: 240px;
+  height: 100vh;
+  height: 100dvh;
+  flex: 0 0 240px;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-4) var(--space-4);
+  background: var(--color-navy);
+  color: #e7eef8;
+}
+
+.sidebar .brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) var(--space-2) var(--space-8);
+  color: #fff;
+  font-size: 0.98rem;
+}
+
+.brand-mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  place-items: center;
+  border-radius: var(--radius-md);
+  background: var(--color-teal-bright);
+  color: var(--color-navy);
+  font-size: 1.05rem;
+  font-weight: 850;
+}
+
+.sidebar-menu,
+.sidebar-menu-content {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.sidebar-menu:not([open]) .sidebar-menu-content {
+  display: none;
+}
+
+.mobile-menu-toggle {
+  display: none;
+}
+
+.sidebar .site-nav {
+  display: grid;
+  justify-content: stretch;
+  gap: var(--space-1);
+  color: #d6e0ed;
+}
+
+.nav-link {
+  display: flex;
+  min-height: 2.8rem;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-md);
+  color: #d6e0ed;
+  font-size: 0.92rem;
+  font-weight: 620;
+  text-decoration: none;
+}
+
+.nav-link svg,
+.logout-button svg {
+  width: 1.2rem;
+  height: 1.2rem;
+  flex: 0 0 1.2rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.7;
+}
+
+.nav-link svg {
+  color: #76d9d3;
+}
+
+.nav-link:hover,
+.nav-link[aria-current="page"] {
+  background: var(--color-navy-soft);
+  color: #fff;
+}
+
+.nav-link[aria-current="page"] {
+  box-shadow: inset 3px 0 var(--color-teal-bright);
+}
+
+.sidebar-account {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: auto;
+  padding: var(--space-4) var(--space-1) 0;
+  border-top: 1px solid #34485e;
+}
+
+.account-link {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-3);
+  color: #fff;
+  text-decoration: none;
+}
+
+.account-avatar {
+  display: grid;
+  width: 2.3rem;
+  height: 2.3rem;
+  flex: 0 0 2.3rem;
+  place-items: center;
+  border-radius: 50%;
+  background: #d7efed;
+  color: #124e55;
+  font-weight: 750;
+}
+
+.account-link strong,
+.account-link small {
+  display: block;
+}
+
+.account-link strong {
+  font-size: 0.9rem;
+}
+
+.account-link small {
+  max-width: 160px;
+  overflow: hidden;
+  color: #bdcbd9;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+}
+
+.logout-button {
+  display: flex;
+  width: 100%;
+  min-height: 2.65rem;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: #d6e0ed;
+  text-align: left;
+  cursor: pointer;
+}
+
+.logout-button:hover {
+  background: var(--color-navy-soft);
+  color: #fff;
+}
+
+.logout-button svg {
+  color: #76d9d3;
+}
+
+.app-frame {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+@media (max-width: 760px) {
+  .app-layout {
+    display: block;
+  }
+
+  .sidebar {
+    position: sticky;
+    z-index: 5;
+    top: 0;
+    width: 100%;
+    height: auto;
+    max-height: 100dvh;
+    overflow: visible;
+    padding: var(--space-2) var(--space-4);
+  }
+
+  .sidebar .brand {
+    padding: var(--space-1) 0;
+  }
+
+  .sidebar-menu {
+    display: block;
+    flex: none;
+  }
+
+  .mobile-menu-toggle {
+    display: flex;
+    min-height: 2.7rem;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) 0;
+    color: #e7eef8;
+    font-weight: 650;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .mobile-menu-toggle::-webkit-details-marker {
+    display: none;
+  }
+
+  .menu-toggle-icon,
+  .menu-toggle-icon svg {
+    display: block;
+    width: 1.25rem;
+    height: 1.25rem;
+  }
+
+  .menu-toggle-icon svg {
+    stroke: currentColor;
+    stroke-linecap: round;
+    stroke-width: 1.8;
+  }
+
+  .sidebar-menu-content {
+    max-height: calc(100dvh - 7rem);
+    overflow-y: auto;
+    padding-bottom: var(--space-2);
+  }
+
+  .sidebar .site-nav {
+    gap: var(--space-1);
+  }
+
+  .sidebar-account {
+    margin-top: var(--space-3);
+  }
+}
