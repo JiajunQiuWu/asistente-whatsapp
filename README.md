@@ -1,411 +1,281 @@
-# Gestor de tareas
+<div align="center">
 
-Aplicación de terminal para guardar tareas pendientes en SQLite y consultar
-noticias de feeds RSS 2.0 o Atom. El código usa la biblioteca estándar de
-Python; el boletín requiere `tzdata` en Windows cuando el sistema no incluye
-datos de zona horaria.
+<h1>Asistente Personal</h1>
 
-El proyecto incluye además una aplicación web Django local en desarrollo para
-registro, inicio de sesión, preferencias individuales y envío manual de
-boletines. No es un despliegue de producción ni programa envíos o alertas.
+<p><strong>Noticias seleccionadas, preferencias personales y boletines por correo en una aplicación web local.</strong></p>
 
-## Requisitos
+<p>
+  <a href="https://angular.dev/"><img src="https://img.shields.io/badge/Angular-Framework-DD0031?logo=angular&logoColor=white" alt="Angular"></a>
+  <a href="https://www.djangoproject.com/"><img src="https://img.shields.io/badge/Django-Backend-092E20?logo=django&logoColor=white" alt="Django"></a>
+  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-Lenguaje-3776AB?logo=python&logoColor=white" alt="Python"></a>
+  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-Frontend-3178C6?logo=typescript&logoColor=white" alt="TypeScript"></a>
+  <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-Base_de_datos-003B57?logo=sqlite&logoColor=white" alt="SQLite"></a>
+</p>
 
-- Windows
-- Python 3.14
-- El entorno virtual `.venv` del proyecto
+<p><strong>Estado:</strong> en desarrollo · ejecución local</p>
 
-## Preparación
+</div>
 
-Abre PowerShell en la carpeta del proyecto y activa el entorno:
+## Índice
 
-```powershell
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-```
+- [Presentación](#presentación)
+- [Capturas de pantalla](#capturas-de-pantalla)
+- [Funcionalidades](#funcionalidades)
+- [Tecnologías](#tecnologías)
+- [Arquitectura](#arquitectura)
+- [Instalación y ejecución](#instalación-y-ejecución)
+- [Configuración del correo](#configuración-del-correo)
+- [Seguridad](#seguridad)
+- [Pruebas](#pruebas)
+- [Roadmap](#roadmap)
+- [Estado del proyecto](#estado-del-proyecto)
 
-Si PowerShell impide activar el entorno, puedes llamar directamente al
-intérprete del entorno en los comandos de abajo sustituyendo `python` por
-`.\.venv\Scripts\python.exe`.
+## Presentación
 
-## Uso
+Asistente Personal reúne una interfaz para consultar noticias según temas elegidos, gestionar preferencias y solicitar boletines por correo. El repositorio también incluye una **CLI independiente** para administrar tareas y consultar noticias desde la terminal.
 
-Ejecuta los comandos desde la carpeta del proyecto:
+La aplicación web está pensada para desarrollo local: Angular presenta la interfaz y Django proporciona la API, la autenticación y la persistencia. El horario guardado en las preferencias no programa envíos automáticos.
+
+## Capturas de pantalla
+
+Todavía no hay capturas reales disponibles en el repositorio. La carpeta [`docs/screenshots/`](docs/screenshots/) queda preparada para incorporarlas cuando se proporcionen; no se incluyen imágenes de muestra ni referencias a archivos que aún no existen.
+
+| Pantalla | Estado |
+|---|---|
+| Noticias | Pendiente de captura real |
+| Inicio de sesión | Pendiente de captura real |
+| Registro | Pendiente de captura real |
+| Preferencias | Pendiente de captura real |
+| Boletín | Pendiente de captura real |
+| Historial | Pendiente de captura real |
+
+Cuando estén disponibles, se añadirán aquí con nombres descriptivos y una breve descripción, después de comprobar que no expongan datos personales ni credenciales.
+
+## Funcionalidades
+
+### Aplicación web
+
+- Registro e inicio de sesión con sesiones de Django.
+- Verificación de correo mediante enlace firmado y con caducidad; en la configuración local predeterminada, el mensaje aparece en la consola del backend.
+- Consulta de noticias RSS/Atom con filtros por tema y fuentes definidas en `data/feeds.json`.
+- Preferencias por cuenta: temas, habilitación y horario del boletín, zona horaria y opciones de alertas.
+- Vista previa y solicitud **manual** de un boletín por correo. Se exige correo verificado y hay un intervalo mínimo de cinco minutos entre intentos.
+- Historial por cuenta con hasta diez intentos recientes y sus estados.
+- Panel de administración de Django en `/admin/`.
+
+Las preferencias de alertas se pueden guardar, pero no se generan alertas. La hora y la opción de habilitar el boletín tampoco activan una tarea programada.
+
+El lector comparte el procesamiento RSS/Atom con la CLI. Las fuentes configuradas actualmente son feeds públicos de BBC para tecnología, economía y actualidad; IA y ciencia aún no tienen fuentes asociadas. Cada consulta tiene un límite de espera de 10 segundos y de 1 MiB por feed; un feed que falla genera un aviso sin impedir consultar los demás.
+
+### CLI independiente
+
+El módulo `app` permite añadir, listar y completar tareas en `data/tasks.db`, además de consultar feeds, generar una vista previa de boletín y configurar o enviar correo desde la terminal. Esta base de tareas es independiente de `backend/db.sqlite3` y no se comparte con las cuentas web.
+
+Ejemplos:
 
 ```powershell
 python -m app add "Preparar presentación"
 python -m app list
 python -m app complete 1
-python -m app list
-python -m app news
 python -m app news --limit 10
-python -m app news --demo
 python -m app briefing
-python -m app briefing --demo
-python -m app email --demo
-python -m app email --demo --send
-python -m app email-config
+python -m app email
 ```
 
-`add` muestra el ID asignado a la tarea. `list` solo muestra tareas pendientes.
-`complete` recibe el ID que mostró `add`; un ID no entero se rechaza y un ID
-inválido o que no corresponda a una tarea pendiente no modifica los datos.
+Los comandos de correo muestran una vista previa por defecto. El envío solo se realiza al indicar `--send`; consulta [Configuración del correo](#configuración-del-correo) antes de usarlo.
 
-La base de datos se crea automáticamente en `data/tasks.db` al ejecutar por
-primera vez cualquiera de los comandos.
+## Tecnologías
 
-## Noticias
+| Tecnología | Función |
+|---|---|
+| Angular | Interfaz web de noticias, cuenta, preferencias, boletín e historial. |
+| Django | API, autenticación, verificación de correo, lógica de boletines y administración. |
+| Python | Backend, lector RSS/Atom y módulo CLI. |
+| TypeScript | Lógica de la aplicación Angular. |
+| SQLite | Persistencia local: `backend/db.sqlite3` para la web y `data/tasks.db` para la CLI. |
 
-El comando `news` consulta los feeds configurados en `data/feeds.json`. Muestra
-hasta cinco noticias por defecto; `--limit` acepta un entero positivo. Solo se
-imprimen los datos disponibles del feed: título, fuente, tema, fecha cuando
-existe y enlace. Los elementos sin fecha aparecen al final y no se les asigna
-una fecha inventada. Los feeds que fallen producen un aviso y no impiden leer
-las otras fuentes.
+## Arquitectura
 
-La configuración inicial contiene feeds RSS públicos de BBC News para
-tecnología, economía (sección Business) y actualidad internacional. Si quieres
-añadir fuentes, edita `data/feeds.json` y agrega objetos con esta forma:
-
-```json
-{
-  "name": "Nombre de la fuente",
-  "url": "https://ejemplo.com/feed.xml",
-  "topic": "Tecnología"
-}
+```mermaid
+flowchart LR
+    U[Persona usuaria] -->|Navegador| A[Angular · localhost:4200]
+    A -->|API /api · sesión y CSRF| D[Django · localhost:8000]
+    D -->|Usuarios, preferencias e historial| W[(SQLite web)]
+    D -->|Lectura RSS/Atom| F[Feeds externos]
+    D -->|Verificación y boletines manuales| M[Backend de correo]
+    C[CLI Python] -->|Tareas| T[(SQLite de tareas)]
+    C -->|Noticias y boletines CLI| F
+    C -->|Envío opcional| M
 ```
 
-Cada objeto debe incluir nombre, URL HTTP o HTTPS y tema. Para probar la
-presentación sin conexión, `python -m app news --demo` muestra ejemplos
-marcados explícitamente como ficticios; no consulta la red.
+El servidor de desarrollo de Angular reenvía `/api/` a Django mediante `frontend/proxy.conf.json`. La CLI y la aplicación web comparten componentes de lectura de noticias, pero mantienen separados sus datos de tareas y de cuentas.
 
-## Boletín
+La API web incluye sesión y CSRF (`GET /api/session/`, `GET /api/csrf/`), autenticación (`POST /api/login/`, `POST /api/logout/`), registro y verificación (`POST /api/register/`, `GET /api/verify-email/`, `POST /api/verify-email/confirm/`), preferencias (`GET /api/preferences/`, `POST /api/preferences/save/`, `POST /api/preferences/resend-verification/`), noticias (`GET /api/news/`) y boletines (`GET /api/newsletter/`, `POST /api/newsletter/send/`, `GET /api/newsletter/history/`). Las operaciones de usuario requieren sesión; las solicitudes de escritura usan protección CSRF.
 
-`python -m app briefing` genera un boletín en texto con la fecha y hora de
-`Europe/Madrid`, hasta cinco noticias y hasta cinco tareas pendientes. Los
-artículos incluyen título, fuente y enlace; si no hay noticias o tareas, el
-boletín lo indica. Generarlo solo consulta las tareas y no las modifica.
+## Instalación y ejecución
 
-`python -m app briefing --demo` usa noticias y tareas de ejemplo, claramente
-identificadas, sin acceder a la base de datos real ni a Internet. La función
-`build_briefing` de `app/briefing.py` construye y devuelve el texto sin
-imprimirlo, para que pueda reutilizarse desde otra interfaz.
+Los siguientes pasos son para **Windows y PowerShell**. Se basan en Python 3.14 y en los scripts npm definidos por el proyecto. Necesitas también Node.js y npm instalados.
 
-## Vista previa de correo
-
-`python -m app email` crea un correo de texto plano con el asunto "Boletín
-personal" y muestra el asunto y el cuerpo en la terminal. Sin `--send`, el
-programa no consulta Internet ni abre una conexión SMTP. Para mantener la vista
-previa offline, no incluye noticias; sí consulta las tareas pendientes locales.
-
-`python -m app email --demo` muestra la vista previa con noticias y tareas
-ficticias. No consulta Internet ni accede a la base de datos real.
-
-## Envío por Gmail
-
-El envío solo ocurre al añadir `--send`. Antes, configura estas variables de
-entorno en la sesión de PowerShell:
+### 1. Clonar el repositorio
 
 ```powershell
-$env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
-$env:EMAIL_TO = "destinatario@ejemplo.com"
+git clone https://github.com/JiajunQiuWu/asistente-whatsapp.git
+Set-Location asistente-whatsapp
 ```
 
-La cuenta remitente debe tener habilitada la verificación en dos pasos y una
-contraseña de aplicación de Gmail. Para guardarla en el Administrador de
-credenciales de Windows, configura primero la dirección de la cuenta y ejecuta
-el comando:
+### 2. Preparar el entorno virtual de Python
 
 ```powershell
-$env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
-$env:EMAIL_TO = "destinatario@ejemplo.com"
-python -m app email-config
+py -3.14 -m venv .venv
+.\.venv\Scripts\Activate.ps1
 ```
 
-La contraseña se solicita de forma oculta y se guarda con `keyring`, usando el
-servicio `asistente-whatsapp.gmail` y la dirección remitente como usuario. No se
-escribe en un archivo. En el envío, el programa busca primero
-`GMAIL_APP_PASSWORD`, después el Administrador de credenciales de Windows y,
-si el almacén está disponible pero no hay una contraseña guardada, la solicita
-de forma oculta. Si el almacén seguro no está disponible, informa del error y
-no recurre a un almacenamiento en texto plano.
+Si PowerShell no permite activar el entorno, usa `.\.venv\Scripts\python.exe` en lugar de `python` en los comandos siguientes.
 
-Para entornos automatizados, `--non-interactive` evita solicitar la contraseña.
-Configura `GMAIL_APP_PASSWORD` en el entorno o guarda previamente la credencial
-con `email-config`:
-
-```powershell
-python -m app email --send
-python -m app email --send --non-interactive
-python -m app email --demo --send
-python -m app email --demo --send --non-interactive
-```
-
-El primer comando prepara el boletín con noticias de los feeds y tareas
-pendientes reales. El segundo prepara solo contenido ficticio, pero **sí envía
-un correo** al destinatario configurado. No ejecutamos estos comandos al probar
-el proyecto. La conexión usa SMTP de Gmail con STARTTLS. Si Gmail acepta el
-mensaje, la aplicación lo informa, pero esto no garantiza su llegada a la
-bandeja de entrada. No hay reintentos.
-
-La vista previa `python -m app email` no consulta credenciales. El comando
-`email-config` configura una contraseña de aplicación, pero no envía correos.
-No se implementa todavía el envío diario.
-
-En Windows, Python puede no tener instalados los datos de zonas horarias que
-necesita `ZoneInfo`. Instala la dependencia desde la carpeta del proyecto:
+### 3. Instalar dependencias
 
 ```powershell
 python -m pip install -r requirements.txt
 ```
 
-## Persistencia
+### 4. Aplicar las migraciones de Django
 
-Las tareas permanecen guardadas al cerrar la aplicación porque se almacenan en
-`data/tasks.db`. Para comprobarlo, añade una tarea, cierra la terminal, abre
-otra en la carpeta del proyecto y ejecuta `python -m app list`: la tarea seguirá
-apareciendo hasta que la completes.
+Desde la raíz del repositorio:
+
+```powershell
+python backend\manage.py migrate
+```
+
+La migración de verificación aplica unicidad de correo sin distinguir mayúsculas/minúsculas. Si una base existente contiene direcciones duplicadas, resuelve los conflictos manualmente antes de volver a ejecutar la migración.
+
+Opcionalmente, crea una cuenta de administración para `/admin/`:
+
+```powershell
+python backend\manage.py createsuperuser
+```
+
+### 5. Iniciar el backend
+
+En una terminal de PowerShell, desde la raíz:
+
+```powershell
+python backend\manage.py runserver localhost:8000
+```
+
+El backend usa el correo de consola de manera predeterminada; no abre una conexión SMTP.
+
+### 6. Instalar e iniciar Angular
+
+Abre una segunda terminal en la raíz del repositorio:
+
+```powershell
+Set-Location frontend
+npm ci
+npm start
+```
+
+El servidor de Angular escucha en `localhost:4200` y utiliza el proxy `/api/` configurado en el proyecto.
+
+### 7. Abrir la aplicación
+
+Visita [http://localhost:4200/](http://localhost:4200/). La aplicación te llevará al inicio de sesión. Para probar el registro con el backend de correo predeterminado, revisa la consola de Django y abre el enlace de verificación que aparece allí.
+
+Utiliza `localhost` en ambos servidores y en el navegador para mantener el mismo origen de las cookies de sesión y CSRF.
+
+## Configuración del correo
+
+En desarrollo, Django usa `django.core.mail.backends.console.EmailBackend`: los correos de verificación y los intentos de boletín se muestran como simulaciones en la terminal, no se envían a Gmail.
+
+Para habilitar Gmail SMTP:
+
+1. Activa la verificación en dos pasos de la cuenta remitente y crea una **contraseña de aplicación** de Google.
+2. Desde la raíz del proyecto, guarda la contraseña en el Administrador de credenciales de Windows. El comando la solicita sin mostrarla:
+
+   ```powershell
+   $env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
+   python -m app email-config
+   ```
+
+3. En la misma sesión de PowerShell, selecciona SMTP y arranca Django:
+
+   ```powershell
+   $env:DJANGO_EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+   $env:EMAIL_HOST = "smtp.gmail.com"
+   $env:EMAIL_PORT = "587"
+   $env:EMAIL_USE_TLS = "true"
+   $env:EMAIL_TIMEOUT = "10"
+   $env:EMAIL_HOST_USER = $env:GMAIL_ADDRESS
+   $env:DEFAULT_FROM_EMAIL = $env:GMAIL_ADDRESS
+   python backend\manage.py runserver localhost:8000
+   ```
+
+El backend de Django reutiliza la contraseña guardada para la cuenta Gmail; también admite `GMAIL_APP_PASSWORD` o `EMAIL_HOST_PASSWORD` como variables de entorno. No guardes contraseñas en el repositorio ni en archivos compartidos.
+
+| Variable | Uso |
+|---|---|
+| `DJANGO_EMAIL_BACKEND` | Selecciona el backend de correo de Django; SMTP requiere configurarlo explícitamente. |
+| `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USE_TLS`, `EMAIL_TIMEOUT` | Parámetros de conexión SMTP. |
+| `GMAIL_ADDRESS` / `EMAIL_HOST_USER` | Cuenta Gmail remitente. |
+| `GMAIL_APP_PASSWORD` / `EMAIL_HOST_PASSWORD` | Contraseña de aplicación; alternativa al almacén de credenciales de Windows. |
+| `EMAIL_TO` | Dirección destinataria usada únicamente por la CLI. |
+| `DEFAULT_FROM_EMAIL` | Dirección que Django muestra como remitente. |
+| `EMAIL_VERIFICATION_BASE_URL` | Origen que Django usa para construir enlaces de verificación. En local: `http://localhost:8000`. |
+| `ANGULAR_FRONTEND_BASE_URL` | Origen de la SPA incluido en enlaces creados desde Angular. En local: `http://localhost:4200`. |
+| `DJANGO_SECRET_KEY` | Clave de Django; el valor de respaldo incluido en la configuración es solo de desarrollo. |
+
+La CLI tiene un flujo de envío separado. Para enviar desde ella, configura el remitente y el destinatario en la sesión de PowerShell, guarda la contraseña con `python -m app email-config` o usa `GMAIL_APP_PASSWORD`, y ejecuta `python -m app email --send`:
+
+```powershell
+$env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
+$env:EMAIL_TO = "destinatario@ejemplo.com"
+python -m app email --send
+```
+
+No se envía correo sin `--send`.
+
+## Seguridad
+
+El proyecto incorpora validación de contraseñas de Django, sesiones, protección CSRF para las solicitudes de escritura, verificación de correo con tokens firmados y caducidad de 24 horas, unicidad de correo sin distinguir mayúsculas/minúsculas y acceso a preferencias e historial asociado a la sesión. El envío manual exige correo verificado y limita los intentos; la CLI almacena las contraseñas de aplicación en el Administrador de credenciales de Windows cuando se usa `email-config`.
+
+**La configuración no está preparada automáticamente para producción.** `DEBUG` permanece habilitado, `ALLOWED_HOSTS` solo permite nombres locales y el `SECRET_KEY` de respaldo es inseguro. No expongas el servidor de desarrollo a Internet ni reutilices sus valores por defecto en un despliegue. Antes de publicar el servicio se requiere configurar y revisar explícitamente el entorno, los secretos, los hosts permitidos, HTTPS y un servidor de aplicaciones adecuado.
 
 ## Pruebas
 
-Desde la carpeta del proyecto, ejecuta las pruebas con el entorno activado:
+Ejecuta estos comandos desde la raíz. Las pruebas Django usan feeds y correo simulados; no envían correos reales.
 
 ```powershell
 python -m unittest discover -s tests -v
 python backend\manage.py check
 python backend\manage.py test accounts
-```
-
-## Aplicación web local
-
-El backend Django está separado de la CLI: `backend\manage.py` es su punto de
-entrada, `backend\config` contiene la configuración y rutas del proyecto, y
-`backend\accounts` implementa autenticación, preferencias y boletines. Usa `backend\db.sqlite3`,
-independiente de `data\tasks.db`; no migra ni consulta las tareas de terminal.
-
-La dependencia del entorno es Django 6.1.2, comprobada con Python 3.14. Para
-instalar o actualizar las dependencias desde PowerShell, en la raíz:
-
-```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-```
-
-El modelo `accounts.User` basado en `AbstractUser` y el modelo de preferencias
-están en la migración inicial. La migración de verificación añade el estado y
-el envío de verificación, además de una restricción de unicidad de correo sin
-distinguir mayúsculas/minúsculas. Comprueba los correos existentes y se detiene
-mostrando las cuentas en conflicto; no borra ni combina usuarios. La migración
-del envío manual añade el registro de intentos y el control de frecuencia; una
-migración posterior añade estados para simulaciones y resultados inciertos.
-Resuelve cualquier conflicto de correo manualmente y aplica las migraciones:
-
-```powershell
-.\.venv\Scripts\python.exe backend\manage.py migrate
-```
-
-Las cuentas previas conservan sus credenciales y quedan sin verificar. Los
-correos vacíos de cuentas existentes se permiten para no impedir la migración;
-el formulario de registro sí exige una dirección válida y única. La CLI y su
-base `data\tasks.db` no se modifican.
-
-Crea un usuario administrador para `/admin/`:
-
-```powershell
-.\.venv\Scripts\python.exe backend\manage.py createsuperuser
-```
-
-Opcionalmente, antes de arrancar, genera y asigna una clave de desarrollo en
-esta sesión de PowerShell:
-
-```powershell
-$env:DJANGO_SECRET_KEY = (& .\.venv\Scripts\python.exe -c "from django.core.management.utils import get_random_secret_key; print(get_random_secret_key())")
-```
-
-En desarrollo Django imprime los correos de verificación en la consola y no
-abre conexiones SMTP; esta es la opción predeterminada. Para elegir el backend
-SMTP, reutiliza la cuenta Gmail y la contraseña que la CLI guarda en el
-Administrador de credenciales de Windows. Gmail exige verificación en dos
-pasos y una contraseña de aplicación. Desde la raíz del proyecto, configura la
-cuenta y guarda la contraseña de forma oculta (este comando no envía correo):
-
-```powershell
-$env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
-python -m app email-config
-```
-
-Después, en la misma sesión de PowerShell, activa SMTP de Django y arranca el
-servidor:
-
-```powershell
-$env:DJANGO_EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
-$env:EMAIL_HOST = "smtp.gmail.com"
-$env:EMAIL_PORT = "587"
-$env:EMAIL_USE_TLS = "true"
-$env:EMAIL_TIMEOUT = "10"
-$env:EMAIL_HOST_USER = $env:GMAIL_ADDRESS
-$env:DEFAULT_FROM_EMAIL = $env:GMAIL_ADDRESS
-$env:EMAIL_VERIFICATION_BASE_URL = "http://localhost:8000"
-.\.venv\Scripts\python.exe backend\manage.py runserver localhost:8000
-```
-
-El backend web reutiliza la recuperación segura de keyring de la CLI y nunca
-solicita la contraseña interactivamente. También acepta `GMAIL_APP_PASSWORD` o
-`EMAIL_HOST_PASSWORD` en el entorno, si ya utilizas esa opción; no la pongas en
-un archivo ni la imprimas. Si el backend SMTP está seleccionado y no encuentra
-la contraseña en el entorno ni en keyring, Django se detiene con un mensaje de
-configuración claro. Gmail usa STARTTLS, puerto 587 y timeout de 10 segundos.
-El origen de los enlaces se toma únicamente de
-`EMAIL_VERIFICATION_BASE_URL`, no de la cabecera `Host`; usa una URL bajo tu
-control. En local el valor predeterminado es `http://localhost:8000`. Los
-registros y reenvíos desde Angular usan `ANGULAR_FRONTEND_BASE_URL` para
-construir el enlace de la SPA. Django ya no renderiza pantallas de usuario:
-ofrece la API, Admin y redirecciones temporales de compatibilidad.
-
-Arranca el servidor **solo en la interfaz local**, desde la raíz:
-
-```powershell
-.\.venv\Scripts\python.exe backend\manage.py runserver localhost:8000
-```
-
-Administra usuarios y preferencias en `http://localhost:8000/admin/`.
-
-La interfaz de usuario está en Angular (`frontend\`), mientras Django conserva
-las sesiones, CSRF, validación de API, lógica de noticias y boletines, correo y
-Admin. El envío manual requiere correo verificado, usa la dirección de la
-sesión, limita cada cuenta a un intento cada cinco minutos y conserva los
-estados de aceptado, simulación, fallo e incertidumbre. No activa el envío
-automático ni consulta tareas de la CLI.
-
-La configuración de fuentes se lee desde `data/feeds.json`, con una ruta
-absoluta derivada del código, no del directorio actual. Los códigos `technology`,
-`economy` e `international` se corresponden explícitamente con las etiquetas
-`Tecnología`, `Economía` y `Actualidad` de las fuentes. Las preferencias IA y
-ciencia todavía no tienen feeds configurados; temas y fuentes desconocidos se
-omiten. Cada consulta usa el lector RSS/Atom compartido con la CLI, con espera
-máxima de 10 segundos, límite de 1 MiB por respuesta y deduplicación de URL de
-fuente dentro de la petición.
-
-Pruebas:
-
-Las pruebas Django usan feeds simulados y el backend de correo en memoria; no
-necesitan Internet ni envían correos reales. Ejecuta también las pruebas de la
-CLI para conservar la cobertura existente:
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-.\.venv\Scripts\python.exe backend\manage.py check
-.\.venv\Scripts\python.exe backend\manage.py test accounts
-```
-
-Las pruebas Django usan feeds y correo simulados; no envían mensajes reales.
-Para comprobar la interfaz, inicia Angular y usa la API local según los pasos
-de la sección siguiente.
-
-La base de datos web, archivos `.env*` y configuración local se excluyen de
-Git. `DEBUG` está habilitado y la clave de respaldo de settings es solo para
-desarrollo: no expongas este servidor ni uses esta configuración en producción.
-No hay recuperación de contraseña, cambio de correo desde la web, programación
-diaria, alertas reales ni integración con WhatsApp.
-
-## Interfaz Angular y API Django
-
-La aplicación Angular standalone de `frontend\` es la interfaz de usuario. El
-lockfile resuelve Angular 22.2.4, Angular CLI 22.2.6 y TypeScript 6.0.3; se
-comprobó con Node 24.21.0 y npm 11.19.0. El frontend usa TypeScript estricto;
-Django ofrece la API, Admin, SQLite, sesiones y la lógica de
-autenticación/noticias. No hace falta configurar variables nuevas para el
-desarrollo local ni cambiar el backend de correo.
-
-Para desarrollo, inicia Django en una terminal desde la raíz del repositorio:
-
-```powershell
-.\.venv\Scripts\python.exe backend\manage.py migrate
-.\.venv\Scripts\python.exe backend\manage.py runserver localhost:8000
-```
-
-En otra terminal, instala las dependencias del frontend una vez e inicia Angular:
-
-```powershell
 Set-Location frontend
-npm install
-npm start
+npm test -- --watch=false
 ```
 
-Abre **`http://localhost:4200/`**; la aplicación redirige a `/noticias` y
-solicita el inicio de sesión si no hay una sesión Django activa. Usa `localhost`
-en ambos servidores y en el navegador; no mezcles `localhost` con
-`127.0.0.1`, ya que las cookies de sesión y CSRF se vinculan al nombre del
-host. Angular envía sus llamadas relativas `/api/` mediante
-`frontend\proxy.conf.json` a `http://localhost:8000`; su cliente HTTP obtiene
-primero la cookie CSRF y envía `csrftoken` en la cabecera `X-CSRFToken`.
-El proxy conserva el `Host` local del navegador para que Django pueda validar
-el origen de Angular sin desactivar CSRF ni añadir otros orígenes confiables.
-
-La API ofrece `GET /api/csrf/`, `GET /api/session/`, `POST /api/login/`,
-`POST /api/logout/`, `GET /api/news/?tema=technology`, `POST /api/register/`,
-`GET /api/verify-email/?token=...`, `POST /api/verify-email/confirm/`,
-`GET /api/preferences/`, `POST /api/preferences/save/` y
-`POST /api/preferences/resend-verification/`, `GET /api/newsletter/`,
-`POST /api/newsletter/send/` y `GET /api/newsletter/history/`. Django valida
-los formularios, mantiene la sesión, protege las escrituras con CSRF y limita
-las preferencias, vista previa e historial al usuario autenticado.
-La salida Angular está en `frontend\src\`; sus estilos propios viven en
-`frontend\src\styles.css` y junto a cada componente. Django conserva sus
-plantillas y recursos estáticos necesarios para Admin, pero no una interfaz
-HTML de usuario.
-
-Angular contiene las pantallas de login, registro, verificación de correo,
-preferencias, Noticias con filtro por tema, vista previa del boletín y su
-historial. El envío manual es síncrono: la API solo informa del resultado
-después de que Django termine de llamar al backend de correo; «aceptado» no
-garantiza la entrega. Se mantienen la verificación obligatoria, el destinatario
-de la sesión y el límite de un intento cada cinco minutos. Registro y reenvío
-generan enlaces firmados a `ANGULAR_FRONTEND_BASE_URL/verificar-email`; el token
-sigue teniendo caducidad de 24 horas, solo se consume al confirmar con POST y
-continúa ligado al usuario y correo actuales. En desarrollo
-`ANGULAR_FRONTEND_BASE_URL` toma por defecto `http://localhost:4200`; en
-producción configura explícitamente `ANGULAR_FRONTEND_BASE_URL` con el origen
-público real de Angular. Si no se define, el valor de respaldo configurado es
-`EMAIL_VERIFICATION_BASE_URL`, que no necesariamente sirve la SPA. La misma
-configuración controla enlaces de verificación nuevos y redirecciones de las
-antiguas rutas de pantalla. Por ejemplo:
+Para compilar Angular:
 
 ```powershell
-$env:ANGULAR_FRONTEND_BASE_URL = "https://app.ejemplo.com"
-```
-
-No es necesario cambiar `EMAIL_VERIFICATION_BASE_URL`, el backend de correo ni
-otras variables existentes. Si la SPA se sirve bajo una ruta base, ajusta
-también el `base href` de Angular. Para producción, publica el frontend y
-enruta `/api/` al mismo origen para conservar las cookies de sesión y CSRF sin
-CORS. Las antiguas rutas GET de pantallas (`/`, `/noticias/`, `/registro/`,
-`/login/`, `/preferencias/`, `/boletin/` y `/verificar-email/`) redirigen
-temporalmente a sus rutas Angular; el token de los enlaces antiguos se
-transporta sin validarlo ni consumirlo. Los antiguos POST de registro, login,
-preferencias y verificación se rechazan; logout, envío manual y reenvío antiguos
-responden `410 Gone` sin efectos. La API y `/admin/` no se redirigen.
-
-Prueba el flujo migrado en `http://localhost:4200/registro`: crea una cuenta;
-con el backend de consola, copia de la consola Django el enlace que termina en
-`/verificar-email?token=...`, ábrelo y confirma. Luego inicia sesión en
-`/login`, guarda o modifica los temas, horario, zona y alertas en
-`/preferencias`, y prueba «Reenviar verificación» (el segundo envío inmediato
-se limita durante cinco minutos). También puedes abrir directamente
-`http://localhost:4200/registro`, `/verificar-email?token=...` o
-`/preferencias`; la última ruta requiere sesión. Tras verificar el correo,
-inicia sesión, selecciona al menos un tema con fuentes disponibles y abre
-`http://localhost:4200/boletin`. Solicita el envío manual allí; con el backend
-de consola se registra una simulación, no un correo real. Consulta el estado y
-el destinatario en `http://localhost:4200/historial`. La pantalla del boletín
-también informa si el correo no está verificado y enlaza a la verificación;
-desde `/preferencias` puedes reenviar el enlace.
-
-Para comprobar la implementación:
-
-```powershell
-.\.venv\Scripts\python.exe backend\manage.py check
-.\.venv\Scripts\python.exe backend\manage.py test accounts
-Set-Location frontend
 npm run build
-npm test
 ```
+
+Ejecuta los dos últimos comandos desde `frontend`.
+
+## Roadmap
+
+### Completado
+
+- [x] Aplicación web Angular y API Django para registro, inicio de sesión y preferencias.
+- [x] Consulta de noticias RSS/Atom desde fuentes configuradas.
+- [x] Verificación de correo y boletín manual con historial de intentos.
+- [x] CLI independiente para gestionar tareas locales.
+
+### Pendiente
+
+- [ ] Integración con WhatsApp.
+- [ ] Envíos automáticos programados; el horario actual solo se almacena como preferencia.
+- [ ] Alertas personalizadas; por ahora solo se pueden guardar sus preferencias.
+- [ ] Despliegue público con configuración y medidas de seguridad adecuadas para producción.
+- [ ] Incorporar capturas reales de noticias, acceso, registro, preferencias, boletín e historial.
+
+## Estado del proyecto
+
+El proyecto sigue en desarrollo y actualmente está orientado a pruebas locales. Las fuentes disponibles se limitan a las configuradas en `data/feeds.json`: ahora hay feeds para tecnología, economía y actualidad; IA y ciencia todavía no tienen fuentes asociadas. Los boletines web se solicitan manualmente, el correo predeterminado es una simulación de consola y las preferencias de alertas no generan notificaciones. La web todavía no ofrece recuperación de contraseña ni cambio de correo. La CLI mantiene sus tareas en una base local separada y no se integra con las cuentas web.
