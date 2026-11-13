@@ -1,13 +1,55 @@
-# Gestor de tareas
+# Asistente personal de noticias y tareas
 
-Aplicación de terminal para guardar tareas pendientes en SQLite y consultar
-noticias de feeds RSS 2.0 o Atom. El código usa la biblioteca estándar de
-Python; el boletín requiere `tzdata` en Windows cuando el sistema no incluye
-datos de zona horaria.
+Proyecto en desarrollo que combina una aplicación web de noticias y boletines personalizados con una herramienta de tareas por terminal.
 
-El proyecto incluye además una aplicación web Django local en desarrollo para
-registro, inicio de sesión, preferencias individuales y envío manual de
-boletines. No es un despliegue de producción ni programa envíos o alertas.
+La **interfaz web está desarrollada en Angular** y se comunica con una **API Django**. Permite registrar usuarios, verificar su correo, iniciar sesión, elegir preferencias, consultar noticias RSS/Atom por tema y generar y enviar manualmente boletines por correo electrónico. Django gestiona sesiones, protección CSRF, validación, correo y administración.
+
+La CLI de Python sigue disponible para gestionar tareas en SQLite y consultar noticias, pero sus tareas **no están integradas** con las cuentas de la web.
+
+> **Estado:** desarrollo local. El repositorio no incluye un despliegue público listo para producción. La integración con WhatsApp, los envíos diarios automáticos y las alertas reales están pendientes.
+
+## Inicio rápido: aplicación web
+
+Necesitas Python 3.14, Node.js y npm, y un entorno virtual de Python. En PowerShell, desde la raíz del repositorio:
+
+```powershell
+.\\.venv\\Scripts\\python.exe -m pip install -r requirements.txt
+.\\.venv\\Scripts\\python.exe backend\\manage.py migrate
+.\\.venv\\Scripts\\python.exe backend\\manage.py runserver localhost:8000
+```
+
+En una segunda terminal:
+
+```powershell
+Set-Location frontend
+npm install
+npm start
+```
+
+Abre **http://localhost:4200/**. La aplicación dirige a Noticias y solicita iniciar sesión cuando corresponde. Usa `localhost` en ambos servicios para que las cookies y la protección CSRF funcionen correctamente. Para configurar Gmail, verificar cuentas y ejecutar pruebas, consulta las secciones posteriores.
+
+## Arquitectura y funcionalidades
+
+| Componente | Función |
+| --- | --- |
+| `frontend/` | SPA Angular: autenticación, noticias, preferencias, boletín e historial |
+| `backend/` | Django: API, usuarios, sesiones, CSRF, verificación de correo, RSS y envío manual |
+| `app/` | CLI Python: tareas, noticias y boletines de terminal |
+| `data/feeds.json` | Fuentes RSS/Atom y sus temas |
+
+El correo de verificación usa enlaces firmados con caducidad. El envío manual exige correo verificado, se dirige a la dirección de la cuenta y tiene un límite de un intento cada cinco minutos. La aceptación del mensaje por SMTP no garantiza su entrega. La aplicación no programa envíos automáticos.
+
+## Seguridad y publicación
+
+**No publiques el servidor de desarrollo de Django en Internet.** Antes de desplegar, configura y verifica como mínimo:
+
+- `DEBUG=False`, una `DJANGO_SECRET_KEY` secreta y persistente y `ALLOWED_HOSTS` limitado a tus dominios.
+- HTTPS, cookies seguras, CSRF y proxy inverso correctamente configurados.
+- `ANGULAR_FRONTEND_BASE_URL` con la URL pública real de Angular y enlaces de verificación bajo dominios controlados.
+- Secretos SMTP fuera de Git, permisos mínimos y gestión segura de credenciales.
+- Migraciones, archivos estáticos, copias de seguridad, registro de errores y pruebas de seguridad antes de admitir usuarios reales.
+
+Se recomienda servir Angular y `/api/` bajo el mismo origen para simplificar cookies y CSRF. **Esta lista no certifica que el proyecto sea seguro para producción**; requiere una revisión de configuración, dependencias y despliegue.
 
 ## Requisitos
 
@@ -141,9 +183,9 @@ python -m app email --demo --send
 python -m app email --demo --send --non-interactive
 ```
 
-El primer comando prepara el boletín con noticias de los feeds y tareas
-pendientes reales. El segundo prepara solo contenido ficticio, pero **sí envía
-un correo** al destinatario configurado. No ejecutamos estos comandos al probar
+Los comandos sin `--demo` preparan contenido real; los comandos con
+`--demo` usan contenido ficticio. **Todos los ejemplos anteriores incluyen
+`--send` y por tanto pueden enviar un correo real** al destinatario configurado. No ejecutamos estos comandos al probar
 el proyecto. La conexión usa SMTP de Gmail con STARTTLS. Si Gmail acepta el
 mensaje, la aplicación lo informa, pero esto no garantiza su llegada a la
 bandeja de entrada. No hay reintentos.
