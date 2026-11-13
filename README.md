@@ -1,55 +1,13 @@
-<div align="center">
+# Gestor de tareas
 
-<h1>Asistente Personal</h1>
+Aplicación de terminal para guardar tareas pendientes en SQLite y consultar
+noticias de feeds RSS 2.0 o Atom. El código usa la biblioteca estándar de
+Python; el boletín requiere `tzdata` en Windows cuando el sistema no incluye
+datos de zona horaria.
 
-<p><strong>Noticias seleccionadas, preferencias personales y boletines por correo en una aplicación web local.</strong></p>
-
-<p>
-  <a href="https://angular.dev/"><img src="https://img.shields.io/badge/Angular-Framework-DD0031?logo=angular&logoColor=white" alt="Angular"></a>
-  <a href="https://www.djangoproject.com/"><img src="https://img.shields.io/badge/Django-Backend-092E20?logo=django&logoColor=white" alt="Django"></a>
-  <a href="https://www.python.org/"><img src="https://img.shields.io/badge/Python-Lenguaje-3776AB?logo=python&logoColor=white" alt="Python"></a>
-  <a href="https://www.typescriptlang.org/"><img src="https://img.shields.io/badge/TypeScript-Frontend-3178C6?logo=typescript&logoColor=white" alt="TypeScript"></a>
-  <a href="https://www.sqlite.org/"><img src="https://img.shields.io/badge/SQLite-Base_de_datos-003B57?logo=sqlite&logoColor=white" alt="SQLite"></a>
-</p>
-
-<p><strong>Estado:</strong> en desarrollo · ejecución local</p>
-
-</div>
-
-## Índice
-
-- [Presentación](#presentación)
-- [Capturas de pantalla](#capturas-de-pantalla)
-- [Funcionalidades](#funcionalidades)
-- [Tecnologías](#tecnologías)
-- [Arquitectura](#arquitectura)
-- [Instalación y ejecución](#instalación-y-ejecución)
-- [Configuración del correo](#configuración-del-correo)
-- [Seguridad](#seguridad)
-- [Pruebas](#pruebas)
-- [Roadmap](#roadmap)
-- [Estado del proyecto](#estado-del-proyecto)
-
-## Presentación
-
-Asistente Personal reúne una interfaz para consultar noticias según temas elegidos, gestionar preferencias y solicitar boletines por correo. El repositorio también incluye una **CLI independiente** para administrar tareas y consultar noticias desde la terminal.
-
-La aplicación web está pensada para desarrollo local: Angular presenta la interfaz y Django proporciona la API, la autenticación y la persistencia. El horario guardado en las preferencias no programa envíos automáticos.
-
-## Capturas de pantalla
-
-Todavía no hay capturas reales disponibles en el repositorio. La carpeta [`docs/screenshots/`](docs/screenshots/) queda preparada para incorporarlas cuando se proporcionen; no se incluyen imágenes de muestra ni referencias a archivos que aún no existen.
-
-| Pantalla | Estado |
-|---|---|
-| Noticias | Pendiente de captura real |
-| Inicio de sesión | Pendiente de captura real |
-| Registro | Pendiente de captura real |
-| Preferencias | Pendiente de captura real |
-| Boletín | Pendiente de captura real |
-| Historial | Pendiente de captura real |
-
-Cuando estén disponibles, se añadirán aquí con nombres descriptivos y una breve descripción, después de comprobar que no expongan datos personales ni credenciales.
+El proyecto incluye además una aplicación web Django local en desarrollo para
+registro, inicio de sesión, preferencias individuales y envío manual de
+boletines. No es un despliegue de producción ni programa envíos o alertas.
 
 ## Funcionalidades
 
@@ -126,13 +84,43 @@ Set-Location asistente-whatsapp
 ### 2. Preparar el entorno virtual de Python
 
 ```powershell
-py -3.14 -m venv .venv
-.\.venv\Scripts\Activate.ps1
+$env:GMAIL_ADDRESS = "tu-cuenta@gmail.com"
+$env:EMAIL_TO = "destinatario@ejemplo.com"
+python -m app email-config
 ```
 
-Si PowerShell no permite activar el entorno, usa `.\.venv\Scripts\python.exe` en lugar de `python` en los comandos siguientes.
+La contraseña se solicita de forma oculta y se guarda con `keyring`, usando el
+servicio `asistente-whatsapp.gmail` y la dirección remitente como usuario. No se
+escribe en un archivo. En el envío, el programa busca primero
+`GMAIL_APP_PASSWORD`, después el Administrador de credenciales de Windows y,
+si el almacén está disponible pero no hay una contraseña guardada, la solicita
+de forma oculta. Si el almacén seguro no está disponible, informa del error y
+no recurre a un almacenamiento en texto plano.
 
-### 3. Instalar dependencias
+Para entornos automatizados, `--non-interactive` evita solicitar la contraseña.
+Configura `GMAIL_APP_PASSWORD` en el entorno o guarda previamente la credencial
+con `email-config`:
+
+```powershell
+python -m app email --send
+python -m app email --send --non-interactive
+python -m app email --demo --send
+python -m app email --demo --send --non-interactive
+```
+
+El primer comando prepara el boletín con noticias de los feeds y tareas
+pendientes reales. El segundo prepara solo contenido ficticio, pero **sí envía
+un correo** al destinatario configurado. No ejecutamos estos comandos al probar
+el proyecto. La conexión usa SMTP de Gmail con STARTTLS. Si Gmail acepta el
+mensaje, la aplicación lo informa, pero esto no garantiza su llegada a la
+bandeja de entrada. No hay reintentos.
+
+La vista previa `python -m app email` no consulta credenciales. El comando
+`email-config` configura una contraseña de aplicación, pero no envía correos.
+No se implementa todavía el envío diario.
+
+En Windows, Python puede no tener instalados los datos de zonas horarias que
+necesita `ZoneInfo`. Instala la dependencia desde la carpeta del proyecto:
 
 ```powershell
 python -m pip install -r requirements.txt
